@@ -4,7 +4,7 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/ae7d7a75522b4d079c497ff6d9e052d1)](https://www.codacy.com/gh/twrpdtgen/twrpdtgen/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=twrpdtgen/twrpdtgen&amp;utm_campaign=Badge_Grade)
 
 Create a [TWRP](https://twrp.me/)-compatible device tree only from an Android recovery image (or a boot image if the device uses non-dynamic partitions A/B) of your device's stock ROM.
-The generic path has been confirmed for Android 4.4 through Android 12.
+The generic path has been confirmed for Android 4.4 through Android 16.
 
 ## Unisoc vendor_boot
 
@@ -28,8 +28,8 @@ When a factory image exposes a generic Unisoc identity rather than the device
 codename, provide the intended tree location explicitly:
 
 ```sh
-python3 -m twrpdtgen hyper7s_vendor_boot.img \
-    --manufacturer Hotwav --codename Hyper7s
+python3 -m twrpdtgen your_vendor_boot.img \
+    --manufacturer Manufacturer --codename Codename
 ```
 
 Requires Python 3.8 or greater
@@ -55,7 +55,7 @@ device-tree identity:
 
 ```sh
 twrpdtgen /path/to/vendor_boot.img -o output \
-    --manufacturer Hotwav --codename Hyper7s
+    --manufacturer Manufacturer --codename Codename
 ```
 
 The generated `README.md` identifies the required TWRP source branch and
