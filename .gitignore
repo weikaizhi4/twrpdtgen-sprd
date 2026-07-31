@@ -2,6 +2,10 @@
 extract/
 output/
 *.img
+/android_device_*-twrp/
+/purpose.txt
+/twrpdtgen-sprd-vendor-boot.tar.gz
+/twrpdtgen-sprd-vendor-boot.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

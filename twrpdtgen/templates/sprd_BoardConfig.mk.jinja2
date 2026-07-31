@@ -1,0 +1,157 @@
+{% include 'LICENSE.jinja2' %}
+
+DEVICE_PATH := device/{{ device_info.manufacturer }}/{{ device_info.codename }}
+
+# Generated from Android {{ sprd_profile.android_release }} stock properties.
+# Use this tree with the {{ sprd_profile.recovery_branch }} source branch.
+ALLOW_MISSING_DEPENDENCIES := true
+BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
+
+# Architecture
+TARGET_ARCH := {{ device_info.arch.arch }}
+TARGET_ARCH_VARIANT := {{ device_info.arch.arch_variant }}
+TARGET_CPU_ABI := {{ device_info.arch.cpu_abi }}
+TARGET_CPU_ABI2 := {{ device_info.arch.cpu_abi2 }}
+TARGET_CPU_VARIANT := generic
+TARGET_CPU_VARIANT_RUNTIME := {{ device_info.cpu_variant }}
+
+{% if device_info.second_arch %}
+TARGET_2ND_ARCH := {{ device_info.second_arch.arch }}
+TARGET_2ND_ARCH_VARIANT := {{ device_info.second_arch.arch_variant }}
+TARGET_2ND_CPU_ABI := {{ device_info.second_arch.cpu_abi }}
+TARGET_2ND_CPU_ABI2 := {{ device_info.second_arch.cpu_abi2 }}
+TARGET_2ND_CPU_VARIANT := generic
+TARGET_2ND_CPU_VARIANT_RUNTIME := {{ device_info.second_cpu_variant }}
+
+{% endif %}
+TARGET_CPU_SMP := true
+ENABLE_CPUSETS := true
+ENABLE_SCHEDBOOST := true
+DEXPREOPT_GENERATE_APEX_IMAGE := true
+
+# Bootloader and Unisoc platform
+{% if device_info.bootloader_board_name %}
+TARGET_BOOTLOADER_BOARD_NAME := {{ device_info.bootloader_board_name }}
+{% endif %}
+TARGET_NO_BOOTLOADER := true
+TARGET_BOARD_PLATFORM := {{ device_info.platform }}
+BOARD_USES_SPRD_HARDWARE := true
+
+{% if device_info.screen_density %}
+TARGET_SCREEN_DENSITY := {{ device_info.screen_density }}
+{% endif %}
+
+# vendor_boot header fields from the stock image. The kernel remains in boot.img.
+TARGET_NO_KERNEL := true
+TARGET_KERNEL_ARCH := {{ device_info.arch.arch }}
+TARGET_PREBUILT_DTB := $(DEVICE_PATH)/prebuilt/dtb.img
+BOARD_PREBUILT_DTBIMAGE := $(TARGET_PREBUILT_DTB)
+
+BOARD_BOOT_HEADER_VERSION := {{ vendor_boot.header_version }}
+BOARD_KERNEL_BASE := 0x00000000
+BOARD_KERNEL_PAGESIZE := {{ vendor_boot.page_size }}
+BOARD_KERNEL_OFFSET := {{ vendor_boot.kernel_addr_hex }}
+BOARD_SECOND_OFFSET := 0x00000000
+BOARD_RAMDISK_OFFSET := {{ vendor_boot.ramdisk_addr_hex }}
+BOARD_KERNEL_TAGS_OFFSET := {{ vendor_boot.tags_addr_hex }}
+BOARD_DTB_OFFSET := {{ vendor_boot.dtb_addr_hex }}
+{% if vendor_boot.vendor_cmdline %}
+BOARD_VENDOR_CMDLINE := {{ vendor_boot.vendor_cmdline }}
+{% endif %}
+
+BOARD_MKBOOTIMG_ARGS += --header_version $(BOARD_BOOT_HEADER_VERSION)
+BOARD_MKBOOTIMG_ARGS += --kernel_offset $(BOARD_KERNEL_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --ramdisk_offset $(BOARD_RAMDISK_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --tags_offset $(BOARD_KERNEL_TAGS_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --dtb_offset $(BOARD_DTB_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --dtb $(TARGET_PREBUILT_DTB)
+{% if vendor_boot.vendor_cmdline %}
+BOARD_MKBOOTIMG_ARGS += --vendor_cmdline "$(BOARD_VENDOR_CMDLINE)"
+{% endif %}
+{% if vendor_boot.bootconfig_lines %}
+BOARD_BOOTCONFIG += \
+{% for line in vendor_boot.bootconfig_lines %}    {{ line }}{% if not loop.last %} \
+{% endif %}{% endfor %}{{ '\n' }}
+{% endif %}
+{% if vendor_boot.uses_lz4 %}
+BOARD_RAMDISK_USE_LZ4 := true
+BOARD_VENDOR_RAMDISK_USE_LZ4 := true
+{% endif %}
+
+TARGET_NO_RECOVERY := true
+BOARD_INCLUDE_RECOVERY_RAMDISK_IN_VENDOR_BOOT := true
+BOARD_MOVE_RECOVERY_RESOURCES_TO_VENDOR_BOOT := true
+
+# Partitions
+BOARD_FLASH_BLOCK_SIZE := {{ vendor_boot.page_size|int * 64 }} # (BOARD_KERNEL_PAGESIZE * 64)
+BOARD_VENDOR_BOOTIMAGE_PARTITION_SIZE := {{ vendor_boot.image_size }}
+BOARD_RECOVERYIMAGE_PARTITION_SIZE := {{ vendor_boot.image_size }}
+BOARD_HAS_LARGE_FILESYSTEM := true
+TARGET_USERIMAGES_USE_EXT4 := true
+TARGET_USERIMAGES_USE_F2FS := true
+TARGET_USERIMAGES_USE_EROFS := true
+TARGET_COPY_OUT_VENDOR := vendor
+TARGET_COPY_OUT_PRODUCT := product
+TARGET_COPY_OUT_SYSTEM_EXT := system_ext
+TARGET_COPY_OUT_ODM := odm
+TARGET_COPY_OUT_VENDOR_DLKM := vendor_dlkm
+TARGET_COPY_OUT_SYSTEM_DLKM := system_dlkm
+
+{% if device_info.device_is_ab %}
+AB_OTA_UPDATER := true
+AB_OTA_PARTITIONS += \
+    vendor_boot
+{% for partition in fstab.get_ab_partitions_models() %}
+{% if partition.name != 'vendor_boot' %}
+AB_OTA_PARTITIONS += \
+    {{ partition.name }}
+{% endif %}
+{% endfor %}{{ '\n' }}
+BOARD_USES_METADATA_PARTITION := true
+{% endif %}
+
+# Recovery and verified boot
+TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
+TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery/root/system/etc/recovery.fstab
+BOARD_AVB_ENABLE := true
+BOARD_AVB_MAKE_VBMETA_IMAGE_ARGS += --flags 3
+BOARD_AVB_VENDOR_BOOT_ROLLBACK_INDEX := 0
+BOARD_AVB_VENDOR_BOOT_ROLLBACK_INDEX_LOCATION := 0
+
+# Platform version is read from prop.default, never hard-coded.
+PLATFORM_VERSION := {{ sprd_profile.android_release }}
+{% if sprd_profile.security_patch %}
+PLATFORM_SECURITY_PATCH := {{ sprd_profile.security_patch }}
+{% endif %}
+{% if sprd_profile.vendor_security_patch %}
+VENDOR_SECURITY_PATCH := {{ sprd_profile.vendor_security_patch }}
+{% endif %}
+TARGET_SYSTEM_PROP += $(DEVICE_PATH)/system.prop
+
+# TWRP configuration
+TWRP_INCLUDE_LOGCAT := true
+TARGET_USES_LOGD := true
+TW_INCLUDE_RESETPROP := true
+TW_INCLUDE_REPACKTOOLS := true
+TW_INCLUDE_LIBRESETPROP := true
+TW_THEME := portrait_hdpi
+TW_EXTRA_LANGUAGES := true
+TW_DEFAULT_LANGUAGE := zh_CN
+TW_USE_TOOLBOX := true
+TW_INCLUDE_CRYPTO := true
+TW_INCLUDE_CRYPTO_FBE := true
+TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
+TW_NO_FLASH_CURRENT_TWRP := true
+TW_DEVICE_VERSION := {{ device_info.brand or device_info.manufacturer }} {{ device_info.model or device_info.codename }}
+TW_INTERNAL_STORAGE_PATH := /data/media/0
+TW_DRM_LEGACY_MODESET := true
+
+# The stock Unisoc boot-control HAL is not part of the generated tree.
+TARGET_EXCLUDE_BOOTCTRL := true
+TARGET_NO_UPDATE_ENGINE := true
+TARGET_NO_RECOVERY_UPDATE_ENGINE := true
+USE_GENERIC_BOOTCTRL_HEADERS := true
+BOARD_BOOTCTRL_HEADER_VERSION := 0
+TARGET_BOOTCTRL_DISABLE := true
+TARGET_BOARD_PLATFORM_NO_BOOTCTRL := true
+TW_NO_FASTBOOT_BOOT := true

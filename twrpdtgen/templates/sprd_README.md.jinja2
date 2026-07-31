@@ -1,0 +1,9 @@
+# TWRP Device Tree for {{ device_info.manufacturer }} {{ device_info.codename }}
+
+This tree was generated from a stock Android {{ sprd_profile.android_release }}
+Unisoc `vendor_boot` image. Build it with the `{{ sprd_profile.recovery_branch }}`
+source branch and lunch target `twrp_{{ device_info.codename }}{{ sprd_profile.lunch_suffix }}-eng`.
+
+The stock DTB, first-stage fstab, kernel modules, recovery fstab, and ueventd
+configuration are retained under `recovery/root` and copied to `vendor_ramdisk`.
+The generated image is `vendor_boot.img`; keep the stock `boot.img` in place.

@@ -1,0 +1,9 @@
+{% include 'LICENSE.jinja2' %}
+
+PRODUCT_MAKEFILES := \
+    $(LOCAL_DIR)/twrp_{{ device_info.codename }}.mk
+
+COMMON_LUNCH_CHOICES := \
+    twrp_{{ device_info.codename }}{{ sprd_profile.lunch_suffix }}-user \
+    twrp_{{ device_info.codename }}{{ sprd_profile.lunch_suffix }}-userdebug \
+    twrp_{{ device_info.codename }}{{ sprd_profile.lunch_suffix }}-eng

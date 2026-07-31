@@ -18,9 +18,13 @@ def main():
 
 	# Main DeviceTree arguments
 	parser.add_argument("image", type=Path,
-						help="path to an image (recovery image or boot image if the device is A/B)")
+						help="path to a recovery, boot, or vendor_boot image")
 	parser.add_argument("-o", "--output", type=Path, default=current_path / "output",
 						help="custom output folder")
+	parser.add_argument("--codename",
+						help="override the codename read from stock properties")
+	parser.add_argument("--manufacturer",
+						help="override the manufacturer read from stock properties")
 
 	# Optional DeviceTree arguments
 	parser.add_argument("--git", action='store_true',
@@ -34,7 +38,8 @@ def main():
 
 	setup_logging(args.debug)
 
-	device_tree = DeviceTree(image=args.image)
+	device_tree = DeviceTree(image=args.image, codename=args.codename,
+						 manufacturer=args.manufacturer)
 	folder = device_tree.dump_to_folder(args.output, git=args.git)
 
 	print(f"\nDone! You can find the device tree in {folder}")

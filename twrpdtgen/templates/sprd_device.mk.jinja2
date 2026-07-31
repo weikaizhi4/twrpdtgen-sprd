@@ -1,0 +1,35 @@
+{% include 'LICENSE.jinja2' %}
+
+LOCAL_PATH := device/{{ device_info.manufacturer }}/{{ device_info.codename }}
+
+{% if device_info.device_uses_dynamic_partitions %}
+PRODUCT_USE_DYNAMIC_PARTITIONS := true
+{% endif %}
+{% if device_info.device_uses_virtual_ab %}
+PRODUCT_VIRTUAL_AB_OTA := true
+{% endif %}
+{% if sprd_profile.shipping_api_level %}
+PRODUCT_SHIPPING_API_LEVEL := {{ sprd_profile.shipping_api_level }}
+{% endif %}
+
+# Retain the factory payload required before dynamic partitions are mounted.
+SPRD_VENDOR_RAMDISK_FILES := \
+    $(call find-copy-subdir-files,*,$(LOCAL_PATH)/recovery/root,vendor_ramdisk)
+
+PRODUCT_COPY_FILES += $(SPRD_VENDOR_RAMDISK_FILES)
+SPRD_VENDOR_RAMDISK_FILES :=
+
+PRODUCT_PACKAGES += \
+    check_f2fs \
+    dump.erofs \
+    f2fs_io \
+    fsck.erofs \
+    sg_write_buffer \
+    checkpoint_gc \
+    snapuserd \
+    android.hardware.fastboot@1.0-impl-mock \
+    android.hardware.fastboot@1.0-impl-mock.recovery \
+    fastbootd
+
+PRODUCT_HOST_PACKAGES += \
+    mkfs.erofs

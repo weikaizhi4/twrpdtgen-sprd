@@ -13,11 +13,14 @@ from sebaubuntu_libs.libandroid.device_info import DeviceInfo
 from sebaubuntu_libs.libandroid.fstab import Fstab
 from sebaubuntu_libs.libandroid.props import BuildProp
 from sebaubuntu_libs.liblogging import LOGD
-from shutil import copyfile, rmtree
+from shutil import copyfile, copytree, rmtree
 from stat import S_IRWXU, S_IRGRP, S_IROTH
+from re import sub
 from twrpdtgen import __version__ as version
+from twrpdtgen.sprd import SprdBuildProfile
 from twrpdtgen.templates import render_template
 from typing import List
+from twrpdtgen.vendor_boot import VendorBootImage
 
 BUILDPROP_LOCATIONS = [Path() / "default.prop",
                        Path() / "prop.default",]
@@ -41,9 +44,13 @@ class DeviceTree:
 	It initialize a basic device tree structure
 	and save the location of some important files
 	"""
-	def __init__(self, image: Path):
+	def __init__(self, image: Path, codename: str = None,
+				 manufacturer: str = None):
 		"""Initialize the device tree class."""
 		self.image = image
+		self.aik_manager = None
+		self.vendor_boot = None
+		self.sprd_profile = None
 
 		self.current_year = str(datetime.now().year)
 
@@ -51,9 +58,14 @@ class DeviceTree:
 		if not self.image.is_file():
 			raise FileNotFoundError("Specified file doesn't exist")
 
-		# Extract the image
-		self.aik_manager = AIKManager()
-		self.image_info = self.aik_manager.unpackimg(image)
+		# vendor_boot must be handled separately: AIK exposes it as a generic
+		# ramdisk and loses the v4 fragment table and bootconfig information.
+		if VendorBootImage.is_vendor_boot(image):
+			self.vendor_boot = VendorBootImage(image)
+			self.image_info = self.vendor_boot.info
+		else:
+			self.aik_manager = AIKManager()
+			self.image_info = self.aik_manager.unpackimg(image)
 
 		assert self.image_info.ramdisk, "Ramdisk not found"
 
@@ -66,6 +78,12 @@ class DeviceTree:
 			self.build_prop.import_props(build_prop)
 
 		self.device_info = DeviceInfo(self.build_prop)
+		if codename:
+			self.device_info.codename = codename
+		if manufacturer:
+			self.device_info.manufacturer = manufacturer
+		if self.vendor_boot is not None:
+			self.sprd_profile = SprdBuildProfile.from_build_prop(self.build_prop)
 
 		# Generate fstab
 		fstab = None
@@ -92,6 +110,9 @@ class DeviceTree:
 			                  if init_rc.name.endswith(".rc") and init_rc.name != "init.rc"]
 
 	def dump_to_folder(self, output_path: Path, git: bool = False) -> Path:
+		if self.vendor_boot is not None:
+			return self._dump_sprd_vendor_boot(output_path, git)
+
 		device_tree_folder = output_path / self.device_info.manufacturer / self.device_info.codename
 		prebuilt_path = device_tree_folder / "prebuilt"
 		recovery_root_path = device_tree_folder / "recovery" / "root"
@@ -136,10 +157,113 @@ class DeviceTree:
 		for init_rc in self.init_rcs:
 			copyfile(init_rc, recovery_root_path / init_rc.name, follow_symlinks=True)
 
-		if not git:
-			return device_tree_folder
+		if git:
+			self._initialize_git_repo(device_tree_folder)
 
-		# Create a git repo
+		return device_tree_folder
+
+	def _dump_sprd_vendor_boot(self, output_path: Path, git: bool) -> Path:
+		"""Generate a vendor_boot TWRP device tree for Unisoc devices."""
+		device_tree_folder = output_path / self.device_info.manufacturer / self.device_info.codename
+		prebuilt_path = device_tree_folder / "prebuilt"
+		recovery_root_path = device_tree_folder / "recovery" / "root"
+
+		LOGD("Creating SPRD vendor_boot device tree folders...")
+		if device_tree_folder.is_dir():
+			rmtree(device_tree_folder, ignore_errors=True)
+		prebuilt_path.mkdir(parents=True)
+		recovery_root_path.mkdir(parents=True)
+
+		LOGD("Writing SPRD vendor_boot makefiles")
+		self._render_template(device_tree_folder, "Android.bp", comment_prefix="//")
+		self._render_template(device_tree_folder, "Android.mk")
+		self._render_template(device_tree_folder, "sprd_AndroidProducts.mk", out_file="AndroidProducts.mk")
+		self._render_template(device_tree_folder, "sprd_BoardConfig.mk", out_file="BoardConfig.mk")
+		self._render_template(device_tree_folder, "sprd_device.mk", out_file="device.mk")
+		self._render_template(device_tree_folder, "sprd_product.mk",
+			out_file=f"twrp_{self.device_info.codename}.mk")
+		self._render_template(device_tree_folder, "sprd_system.prop", out_file="system.prop")
+		self._render_template(device_tree_folder, "sprd_README.md", out_file="README.md")
+
+		LOGD("Copying vendor_boot DTB and ramdisk payload")
+		copyfile(self.vendor_boot.info.dtb, prebuilt_path / "dtb.img")
+		self._copy_sprd_vendor_ramdisk(recovery_root_path)
+		self._write_sprd_twrp_fstab(recovery_root_path)
+
+		if git:
+			self._initialize_git_repo(device_tree_folder)
+
+		return device_tree_folder
+
+	def _copy_sprd_vendor_ramdisk(self, recovery_root_path: Path):
+		"""Keep only the factory payload TWRP must retain in vendor_ramdisk."""
+		stock_root = self.vendor_boot.info.ramdisk
+
+		first_stage = stock_root / "first_stage_ramdisk"
+		if first_stage.is_dir():
+			for source in first_stage.rglob("*"):
+				if not source.is_file() or not source.name.startswith("fstab."):
+					continue
+				destination = recovery_root_path / source.relative_to(stock_root)
+				self._copy_fstab_without_avb(source, destination)
+
+		modules = stock_root / "lib" / "modules"
+		if modules.is_dir():
+			copytree(modules, recovery_root_path / "lib" / "modules")
+
+		for relative_path in ("system/etc/recovery.fstab", "system/etc/ueventd.rc"):
+			source = stock_root / relative_path
+			if source.is_file():
+				destination = recovery_root_path / relative_path
+				if source.name.endswith("fstab"):
+					self._copy_fstab_without_avb(source, destination)
+				else:
+					self._copy_file(source, destination)
+
+		# Android 13-and-earlier vendor ramdisks use the TWRP 12.1 stock policy
+		# path. Android 14 and newer use TWRP 14.1's compatible policy instead.
+		if self.sprd_profile.copy_stock_selinux:
+			for source in stock_root.iterdir():
+				if source.is_file() and (
+					source.name == "sepolicy" or (
+						source.name.endswith("_contexts") and
+						source.name.startswith(("odm_", "plat_", "product_"))
+					)
+				):
+					self._copy_file(source, recovery_root_path / source.name)
+			init_common = stock_root / "init.recovery.common.rc"
+			if init_common.is_file():
+				self._copy_file(init_common, recovery_root_path / init_common.name)
+
+	def _write_sprd_twrp_fstab(self, recovery_root_path: Path):
+		"""Create the TWRP partition table and expose the vendor_boot slot."""
+		contents = self.fstab.format(twrp=True)
+		if "/vendor_boot" not in contents:
+			contents += (
+				"/vendor_boot         emmc      /dev/block/by-name/vendor_boot"
+				"   flags=slotselect;backup=1;flashimg=1;display=Vendor Boot\n"
+			)
+		(recovery_root_path / "system" / "etc").mkdir(parents=True, exist_ok=True)
+		(recovery_root_path / "system" / "etc" / "twrp.fstab").write_text(
+			contents, encoding="utf-8"
+		)
+
+	@staticmethod
+	def _copy_file(source: Path, destination: Path):
+		destination.parent.mkdir(parents=True, exist_ok=True)
+		copyfile(source, destination, follow_symlinks=True)
+
+	def _copy_fstab_without_avb(self, source: Path, destination: Path):
+		# Both supplied trees remove the stock AVB key restrictions so TWRP can
+		# mount dynamic partitions after bootloader verification has completed.
+		contents = source.read_text(encoding="utf-8")
+		contents = sub(r",avb_keys=[^,\s]+", "", contents)
+		contents = sub(r",avb(?:=[^,\s]+)?", "", contents)
+		destination.parent.mkdir(parents=True, exist_ok=True)
+		destination.write_text(contents, encoding="utf-8")
+
+	def _initialize_git_repo(self, device_tree_folder: Path):
+		"""Create the optional generated repository with the historic defaults."""
 		LOGD("Creating git repo...")
 
 		git_repo = Repo.init(device_tree_folder)
@@ -147,7 +271,8 @@ class DeviceTree:
 		git_config_writer = git_repo.config_writer()
 
 		try:
-			git_global_email, git_global_name = git_config_reader.get_value('user', 'email'), git_config_reader.get_value('user', 'name')
+			git_global_email = git_config_reader.get_value('user', 'email')
+			git_global_name = git_config_reader.get_value('user', 'name')
 		except Exception:
 			git_global_email, git_global_name = None, None
 
@@ -159,8 +284,6 @@ class DeviceTree:
 		commit_message = self._render_template(None, "commit_message", to_file=False)
 		git_repo.index.commit(commit_message)
 
-		return device_tree_folder
-
 	def _render_template(self, *args, comment_prefix: str = "#", **kwargs):
 		return render_template(*args,
 		                       comment_prefix=comment_prefix,
@@ -168,9 +291,14 @@ class DeviceTree:
 		                       device_info=self.device_info,
 		                       fstab=self.fstab,
 		                       image_info=self.image_info,
+		                       sprd_profile=self.sprd_profile,
+		                       vendor_boot=self.vendor_boot.info if self.vendor_boot else None,
 		                       version=version,
 		                       **kwargs)
 
 	def cleanup(self):
 		# Cleanup
-		self.aik_manager.cleanup()
+		if self.vendor_boot is not None:
+			self.vendor_boot.cleanup()
+		elif self.aik_manager is not None:
+			self.aik_manager.cleanup()
