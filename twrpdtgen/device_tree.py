@@ -132,14 +132,27 @@ class DeviceTree:
 		LOGD("Writing makefiles/blueprints")
 		self._render_template(device_tree_folder, "Android.bp", comment_prefix="//")
 		self._render_template(device_tree_folder, "Android.mk")
-		self._render_template(device_tree_folder, "AndroidProducts.mk")
+		if self.sprd_profile is not None:
+			self._render_template(device_tree_folder, "sprd_AndroidProducts.mk",
+				out_file="AndroidProducts.mk")
+		else:
+			self._render_template(device_tree_folder, "AndroidProducts.mk")
 		self._render_template(device_tree_folder, "BoardConfig.mk")
 		self._render_template(device_tree_folder, "device.mk")
 		self._render_template(device_tree_folder, "extract-files.sh")
-		self._render_template(device_tree_folder, "omni_device.mk", out_file=f"omni_{self.device_info.codename}.mk")
+		if self.sprd_profile is not None:
+			self._render_template(device_tree_folder, "sprd_product.mk",
+				out_file=f"twrp_{self.device_info.codename}.mk")
+		else:
+			self._render_template(device_tree_folder, "omni_device.mk",
+				out_file=f"omni_{self.device_info.codename}.mk")
 		self._render_template(device_tree_folder, "README.md")
 		self._render_template(device_tree_folder, "setup-makefiles.sh")
-		self._render_template(device_tree_folder, "vendorsetup.sh")
+		if self.sprd_profile is not None:
+			self._render_template(device_tree_folder, "sprd_vendorsetup.sh",
+				out_file="vendorsetup.sh")
+		else:
+			self._render_template(device_tree_folder, "vendorsetup.sh")
 
 		# Set permissions
 		chmod(device_tree_folder / "extract-files.sh", S_IRWXU | S_IRGRP | S_IROTH)
