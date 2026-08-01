@@ -228,7 +228,7 @@ TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
 TW_DRM_LEGACY_MODESET := true
 {% endif %}
 {% if sprd_profile.copy_stock_selinux %}
-# Run tools/patch_stock_sepolicy.sh with magiskpolicy before building.
+# Run tools/patch_stock_sepolicy.sh with a libsepol-backed SEPOLICY_PATCHER before building.
 {% endif %}
 {% endif %}
 {% if device_info.device_is_ab %}
