@@ -34,10 +34,11 @@ python3 -m twrpdtgen your_vendor_boot.img \
 
 Traditional Android `boot.img` images from UMS/SC platforms are supported as
 well. Android 13 and earlier use the `twrp-12.1` profile, while Android 14 and
-newer use `twrp-14.1` with the `-ap2a` lunch variant. These trees receive the
-same decryption source overlay; UMS9620/UMS9230 also receive the legacy DRM
-overlay, and SC27XX vibrator support is enabled only when the vendor ramdisk
-contains its driver.
+newer use `twrp-14.1` with the `-ap2a` lunch variant. `twrp-12.1` keeps the
+original bundled source overlay; `twrp-14.1` uses its separate TWRP 14.1
+overlay. UMS9620/UMS9230 also receive the legacy DRM overlay on the 12.1 path,
+and SC27XX vibrator support is enabled only when the vendor ramdisk contains
+its driver.
 
 Requires Python 3.8 or greater
 
