@@ -6,6 +6,7 @@
 """SPRD/Unisoc-specific build settings derived from stock properties."""
 
 from dataclasses import dataclass
+from pathlib import Path
 from re import search
 from typing import Optional
 
@@ -36,13 +37,16 @@ class SprdBuildProfile:
 	recovery_branch: str
 	lunch_platform: str
 	copy_stock_selinux: bool
+	uses_sc27xx_haptics: bool
+	needs_legacy_drm: bool
 
 	@property
 	def lunch_suffix(self) -> str:
 		return f"-{self.lunch_platform}" if self.lunch_platform else ""
 
 	@classmethod
-	def from_build_prop(cls, build_prop) -> "SprdBuildProfile":
+	def from_build_prop(cls, build_prop, ramdisk: Optional[Path] = None,
+						platform: Optional[str] = None) -> "SprdBuildProfile":
 		android_release = _first_prop(
 			build_prop,
 			"ro.system.build.version.release",
@@ -74,6 +78,9 @@ class SprdBuildProfile:
 			"ro.board.first_api_level",
 			"ro.vendor.api_level",
 		) or android_sdk
+		platform = (platform or _first_prop(build_prop, "ro.board.platform") or "").lower()
+		uses_sc27xx_haptics = _has_sc27xx_haptics(ramdisk)
+		needs_legacy_drm = platform in {"ums9620", "ums9230"}
 
 		major = _android_major(android_release)
 		if major >= 14:
@@ -86,6 +93,8 @@ class SprdBuildProfile:
 				recovery_branch="twrp-14.1",
 				lunch_platform="ap2a",
 				copy_stock_selinux=False,
+				uses_sc27xx_haptics=uses_sc27xx_haptics,
+				needs_legacy_drm=needs_legacy_drm,
 			)
 		return cls(
 			android_release=android_release,
@@ -96,4 +105,24 @@ class SprdBuildProfile:
 			recovery_branch="twrp-12.1",
 			lunch_platform="",
 			copy_stock_selinux=True,
+			uses_sc27xx_haptics=uses_sc27xx_haptics,
+			needs_legacy_drm=needs_legacy_drm,
 		)
+
+
+def _has_sc27xx_haptics(ramdisk: Optional[Path]) -> bool:
+	"""Detect the Unisoc vibrator driver retained from the vendor ramdisk."""
+	if ramdisk is None:
+		return False
+
+	modules = ramdisk / "lib" / "modules"
+	if not modules.is_dir():
+		return False
+
+	for module in modules.rglob("*"):
+		name = module.name.lower()
+		if module.is_file() and "sc27" in name and (
+			"vibra" in name or "vibrator" in name or "haptic" in name
+		):
+			return True
+	return False

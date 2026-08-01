@@ -14,10 +14,11 @@ from sebaubuntu_libs.libandroid.fstab import Fstab
 from sebaubuntu_libs.libandroid.props import BuildProp
 from sebaubuntu_libs.liblogging import LOGD
 from shutil import copyfile, copytree, rmtree
-from stat import S_IRWXU, S_IRGRP, S_IROTH
+from stat import S_IRWXU, S_IRGRP, S_IROTH, S_IXGRP, S_IXOTH
 from re import sub
 from twrpdtgen import __version__ as version
 from twrpdtgen.sprd import SprdBuildProfile
+from twrpdtgen.source_patches import selected_source_patches, source_patch_root
 from twrpdtgen.templates import render_template
 from typing import List
 from twrpdtgen.vendor_boot import VendorBootImage
@@ -83,7 +84,11 @@ class DeviceTree:
 		if manufacturer:
 			self.device_info.manufacturer = manufacturer
 		if self.vendor_boot is not None:
-			self.sprd_profile = SprdBuildProfile.from_build_prop(self.build_prop)
+			self.sprd_profile = SprdBuildProfile.from_build_prop(
+				self.build_prop,
+				ramdisk=self.image_info.ramdisk,
+				platform=self.device_info.platform,
+			)
 
 		# Generate fstab
 		fstab = None
@@ -189,6 +194,7 @@ class DeviceTree:
 		copyfile(self.vendor_boot.info.dtb, prebuilt_path / "dtb.img")
 		self._copy_sprd_vendor_ramdisk(recovery_root_path)
 		self._write_sprd_twrp_fstab(recovery_root_path)
+		self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
 
 		if git:
 			self._initialize_git_repo(device_tree_folder)
@@ -247,6 +253,29 @@ class DeviceTree:
 		(recovery_root_path / "system" / "etc" / "twrp.fstab").write_text(
 			contents, encoding="utf-8"
 		)
+
+	def _copy_sprd_source_patches(self, sourcecode_path: Path):
+		"""Package the source overlay needed to build this generated tree."""
+		patch_root = source_patch_root()
+		files_path = sourcecode_path / "files"
+		patches = selected_source_patches(self.sprd_profile)
+
+		LOGD("Copying SPRD TWRP source overlay")
+		for relative_path in patches:
+			source = patch_root / relative_path
+			if not source.is_file():
+				raise FileNotFoundError(f"Bundled source patch is missing: {source}")
+			self._copy_file(source, files_path / relative_path)
+
+		manifest = "# Paths are relative to the TWRP source root.\n"
+		manifest += "\n".join(patches) + "\n"
+		sourcecode_path.mkdir(parents=True, exist_ok=True)
+		(sourcecode_path / "source-files.txt").write_text(manifest, encoding="utf-8")
+		self._render_template(sourcecode_path, "sprd_patch.sh", out_file="patch.sh")
+		self._render_template(sourcecode_path, "sprd_recovery.sh", out_file="recovery.sh")
+		mode = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH
+		chmod(sourcecode_path / "patch.sh", mode)
+		chmod(sourcecode_path / "recovery.sh", mode)
 
 	@staticmethod
 	def _copy_file(source: Path, destination: Path):

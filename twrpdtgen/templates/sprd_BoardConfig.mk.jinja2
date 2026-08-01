@@ -140,11 +140,15 @@ TW_DEFAULT_LANGUAGE := zh_CN
 TW_USE_TOOLBOX := true
 TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
+{% if sprd_profile.uses_sc27xx_haptics %}
 TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
+{% endif %}
 TW_NO_FLASH_CURRENT_TWRP := true
 TW_DEVICE_VERSION := {{ device_info.brand or device_info.manufacturer }} {{ device_info.model or device_info.codename }}
 TW_INTERNAL_STORAGE_PATH := /data/media/0
+{% if sprd_profile.needs_legacy_drm %}
 TW_DRM_LEGACY_MODESET := true
+{% endif %}
 
 # The stock Unisoc boot-control HAL is not part of the generated tree.
 TARGET_EXCLUDE_BOOTCTRL := true
