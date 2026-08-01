@@ -172,6 +172,11 @@ BOARD_INCLUDE_RECOVERY_DTBO := true
 {% if device_info.device_pixel_format %}
 TARGET_RECOVERY_PIXEL_FORMAT := {{ device_info.device_pixel_format }}
 {% endif %}
+{% if sprd_profile %}
+# The recovery root is read-only; do not stage an additional fstab under /etc.
+TW_SKIP_ADDITIONAL_FSTAB := true
+TW_EMBEDDED_VENDOR_LIBS := true
+{% endif %}
 TARGET_USERIMAGES_USE_EXT4 := true
 TARGET_USERIMAGES_USE_F2FS := true
 
@@ -221,6 +226,9 @@ TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
 {% endif %}
 {% if sprd_profile.needs_legacy_drm %}
 TW_DRM_LEGACY_MODESET := true
+{% endif %}
+{% if sprd_profile.copy_stock_selinux %}
+# Run tools/patch_stock_sepolicy.sh with magiskpolicy before building.
 {% endif %}
 {% endif %}
 {% if device_info.device_is_ab %}
