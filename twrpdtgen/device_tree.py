@@ -15,7 +15,7 @@ from sebaubuntu_libs.libandroid.props import BuildProp
 from sebaubuntu_libs.liblogging import LOGD
 from shutil import copyfile, copytree, rmtree
 from stat import S_IRWXU, S_IRGRP, S_IROTH, S_IXGRP, S_IXOTH
-from re import sub
+from re import fullmatch, sub
 from twrpdtgen import __version__ as version
 from twrpdtgen.sprd import SprdBuildProfile, is_required_vendor_ramdisk_root_file
 from twrpdtgen.source_patches import selected_source_patches, source_patch_root
@@ -88,6 +88,7 @@ class DeviceTree:
 				self.build_prop,
 				ramdisk=self.image_info.ramdisk,
 				platform=self.device_info.platform,
+				dtb=self.image_info.dtb,
 			)
 
 		# Generate fstab
@@ -177,6 +178,7 @@ class DeviceTree:
 
 		if self.sprd_profile is not None:
 			self._copy_sprd_vendor_ramdisk(recovery_root_path, self.image_info.ramdisk)
+			self._write_sprd_recovery_init(recovery_root_path)
 			self._write_sprd_sepolicy_helper(device_tree_folder, prebuilt_path)
 			self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
 
@@ -211,6 +213,7 @@ class DeviceTree:
 		LOGD("Copying vendor_boot DTB and ramdisk payload")
 		copyfile(self.vendor_boot.info.dtb, prebuilt_path / "dtb.img")
 		self._copy_sprd_vendor_ramdisk(recovery_root_path)
+		self._write_sprd_recovery_init(recovery_root_path)
 		self._write_sprd_sepolicy_helper(device_tree_folder, prebuilt_path)
 		self._write_sprd_twrp_fstab(recovery_root_path)
 		self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
@@ -266,6 +269,24 @@ class DeviceTree:
 			if source.is_file():
 				self._copy_file(source, recovery_root_path / relative_path)
 
+	def _write_sprd_recovery_init(self, recovery_root_path: Path):
+		"""Add a hardware recovery init entry point when stock omitted it."""
+		board = self.device_info.bootloader_board_name or ""
+		if not fullmatch(r"[A-Za-z0-9_.-]+", board):
+			return
+
+		entrypoint = recovery_root_path / f"init.recovery.{board}.rc"
+		common = recovery_root_path / "init.recovery.common.rc"
+		if entrypoint.exists() or not common.is_file():
+			return
+
+		self._render_template(recovery_root_path, "sprd_init_recovery.rc",
+			out_file=entrypoint.name)
+		custom = recovery_root_path / "init.custom.rc"
+		if not custom.exists():
+			self._render_template(recovery_root_path, "sprd_init_custom.rc",
+				out_file=custom.name)
+
 	def _write_sprd_sepolicy_helper(self, device_tree_folder: Path, prebuilt_path: Path):
 		"""Package a reproducible stock-policy patch helper when one was extracted."""
 		stock_policy = device_tree_folder / "recovery" / "root" / "sepolicy"
@@ -277,6 +298,8 @@ class DeviceTree:
 		tools_path.mkdir(parents=True, exist_ok=True)
 		self._render_template(tools_path, "sprd_patch_stock_sepolicy.sh",
 			out_file="patch_stock_sepolicy.sh")
+		self._render_template(tools_path, "sprd_patch_stock_sepolicy.c",
+			out_file="patch_stock_sepolicy.c", comment_prefix="//")
 		mode = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH
 		chmod(tools_path / "patch_stock_sepolicy.sh", mode)
 
