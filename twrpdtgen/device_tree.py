@@ -17,7 +17,7 @@ from shutil import copyfile, copytree, rmtree
 from stat import S_IRWXU, S_IRGRP, S_IROTH, S_IXGRP, S_IXOTH
 from re import sub
 from twrpdtgen import __version__ as version
-from twrpdtgen.sprd import SprdBuildProfile
+from twrpdtgen.sprd import SprdBuildProfile, is_required_vendor_ramdisk_root_file
 from twrpdtgen.source_patches import selected_source_patches, source_patch_root
 from twrpdtgen.templates import render_template
 from typing import List
@@ -176,6 +176,8 @@ class DeviceTree:
 			copyfile(init_rc, recovery_root_path / init_rc.name, follow_symlinks=True)
 
 		if self.sprd_profile is not None:
+			self._copy_sprd_vendor_ramdisk(recovery_root_path, self.image_info.ramdisk)
+			self._write_sprd_sepolicy_helper(device_tree_folder, prebuilt_path)
 			self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
 
 		if git:
@@ -209,6 +211,7 @@ class DeviceTree:
 		LOGD("Copying vendor_boot DTB and ramdisk payload")
 		copyfile(self.vendor_boot.info.dtb, prebuilt_path / "dtb.img")
 		self._copy_sprd_vendor_ramdisk(recovery_root_path)
+		self._write_sprd_sepolicy_helper(device_tree_folder, prebuilt_path)
 		self._write_sprd_twrp_fstab(recovery_root_path)
 		self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
 
@@ -217,9 +220,10 @@ class DeviceTree:
 
 		return device_tree_folder
 
-	def _copy_sprd_vendor_ramdisk(self, recovery_root_path: Path):
-		"""Keep only the factory payload TWRP must retain in vendor_ramdisk."""
-		stock_root = self.vendor_boot.info.ramdisk
+	def _copy_sprd_vendor_ramdisk(self, recovery_root_path: Path, stock_root: Path = None):
+		"""Keep the factory vendor runtime required before /vendor is mounted."""
+		if stock_root is None:
+			stock_root = self.vendor_boot.info.ramdisk
 
 		first_stage = stock_root / "first_stage_ramdisk"
 		if first_stage.is_dir():
@@ -242,20 +246,39 @@ class DeviceTree:
 				else:
 					self._copy_file(source, destination)
 
-		# Android 13-and-earlier vendor ramdisks use the TWRP 12.1 stock policy
-		# path. Android 14 and newer use TWRP 14.1's compatible policy instead.
-		if self.sprd_profile.copy_stock_selinux:
-			for source in stock_root.iterdir():
-				if source.is_file() and (
-					source.name == "sepolicy" or (
-						source.name.endswith("_contexts") and
-						source.name.startswith(("odm_", "plat_", "product_"))
-					)
-				):
-					self._copy_file(source, recovery_root_path / source.name)
-			init_common = stock_root / "init.recovery.common.rc"
-			if init_common.is_file():
-				self._copy_file(init_common, recovery_root_path / init_common.name)
+		# Keep recovery-specific init fragments, all matching uevent rules, and
+		# the stock SELinux policy/context set.  Do not copy init.rc: it would
+		# replace TWRP's own init entry point in the generated vendor ramdisk.
+		for source in stock_root.iterdir():
+			if not source.is_file() or not is_required_vendor_ramdisk_root_file(source.name):
+				continue
+			self._copy_file(source, recovery_root_path / source.name)
+
+		# Vendor boot commonly contains Trusty/KeyMint services and their shared
+		# libraries.  They are needed before logical partitions become available,
+		# so retain the complete vendor subtree rather than a brittle allow-list.
+		vendor = stock_root / "vendor"
+		if vendor.is_dir():
+			copytree(vendor, recovery_root_path / "vendor")
+
+		for relative_path in ("system/etc/vintf/manifest.xml", "system/etc/twrp.flags"):
+			source = stock_root / relative_path
+			if source.is_file():
+				self._copy_file(source, recovery_root_path / relative_path)
+
+	def _write_sprd_sepolicy_helper(self, device_tree_folder: Path, prebuilt_path: Path):
+		"""Package a reproducible stock-policy patch helper when one was extracted."""
+		stock_policy = device_tree_folder / "recovery" / "root" / "sepolicy"
+		if not stock_policy.is_file():
+			return
+
+		copyfile(stock_policy, prebuilt_path / "sepolicy.stock")
+		tools_path = device_tree_folder / "tools"
+		tools_path.mkdir(parents=True, exist_ok=True)
+		self._render_template(tools_path, "sprd_patch_stock_sepolicy",
+			out_file="patch_stock_sepolicy.sh")
+		mode = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH
+		chmod(tools_path / "patch_stock_sepolicy.sh", mode)
 
 	def _write_sprd_twrp_fstab(self, recovery_root_path: Path):
 		"""Create the TWRP partition table and expose the vendor_boot slot."""
