@@ -40,6 +40,11 @@ BOARD_USES_SPRD_HARDWARE := true
 {% if device_info.screen_density %}
 TARGET_SCREEN_DENSITY := {{ device_info.screen_density }}
 {% endif %}
+{% if sprd_profile.screen_width and sprd_profile.screen_height %}
+# Read from the stock DTB's sprd,generic-mipi-panel node.
+TARGET_SCREEN_WIDTH := {{ sprd_profile.screen_width }}
+TARGET_SCREEN_HEIGHT := {{ sprd_profile.screen_height }}
+{% endif %}
 
 # vendor_boot header fields from the stock image. The kernel remains in boot.img.
 TARGET_NO_KERNEL := true
@@ -162,7 +167,7 @@ TW_INCLUDE_CRYPTO_FBE := true
 TW_EMBEDDED_VENDOR_LIBS := true
 {% if sprd_profile.copy_stock_selinux %}
 # A stock vendor policy was retained. Regenerate it with tools/patch_stock_sepolicy.sh
-# when magiskpolicy is available, so init and recovery run permissively.
+# and a libsepol-backed SEPOLICY_PATCHER, so init and recovery run permissively.
 {% endif %}
 {% if sprd_profile.uses_sc27xx_haptics %}
 TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
