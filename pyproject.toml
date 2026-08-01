@@ -10,6 +10,7 @@ repository = "https://github.com/twrpdtgen/twrpdtgen"
 # The generator copies these overlays into each generated device tree.
 include = [
     { path = "SourcePatches", format = ["sdist", "wheel"] },
+    { path = "SourcePatches14", format = ["sdist", "wheel"] },
 ]
 
 [tool.poetry.scripts]
