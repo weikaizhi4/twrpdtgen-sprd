@@ -127,6 +127,9 @@ BOARD_USES_METADATA_PARTITION := true
 # Recovery and verified boot
 TARGET_RECOVERY_PIXEL_FORMAT := RGBX_8888
 TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery/root/system/etc/recovery.fstab
+# vendor_boot's root filesystem is read-only. Avoid staging a discovered fstab
+# at /etc/additional.fstab, which otherwise restarts recovery before the GUI.
+TW_SKIP_ADDITIONAL_FSTAB := true
 BOARD_AVB_ENABLE := true
 BOARD_AVB_MAKE_VBMETA_IMAGE_ARGS += --flags 3
 BOARD_AVB_VENDOR_BOOT_ROLLBACK_INDEX := 0
@@ -154,6 +157,13 @@ TW_DEFAULT_LANGUAGE := zh_CN
 TW_USE_TOOLBOX := true
 TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
+# The factory vendor ramdisk is retained under /vendor for Trusty/KeyMint and
+# display dependencies that are needed before dynamic partitions are mounted.
+TW_EMBEDDED_VENDOR_LIBS := true
+{% if sprd_profile.copy_stock_selinux %}
+# A stock vendor policy was retained. Regenerate it with tools/patch_stock_sepolicy.sh
+# when magiskpolicy is available, so init and recovery run permissively.
+{% endif %}
 {% if sprd_profile.uses_sc27xx_haptics %}
 TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
 {% endif %}
