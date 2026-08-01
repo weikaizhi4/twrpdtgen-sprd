@@ -12,8 +12,8 @@ This fork also recognizes Android `vendor_boot` v3/v4 images and generates a
 Unisoc/SPRD TWRP tree. It extracts the vendor ramdisk, DTB, vendor command
 line, ramdisk table, and bootconfig directly from the input image.
 
-- The generated Unisoc vendor_boot product is `twrp_<codename>`, never
-  `omni_<codename>`.
+- All generated Unisoc/SPRD products use `twrp_<codename>`, never
+  `omni_<codename>`, including traditional `boot.img` trees.
 - `BoardConfig.mk` includes `BOARD_USES_SPRD_HARDWARE := true` and the stock
   vendor_boot parameters.
 - `prop.default` is read from the stock ramdisk. Android 14 and newer selects
@@ -34,9 +34,10 @@ python3 -m twrpdtgen your_vendor_boot.img \
 
 Traditional Android `boot.img` images from UMS/SC platforms are supported as
 well. Android 13 and earlier use the `twrp-12.1` profile, while Android 14 and
-newer use `twrp-14.1`. These trees receive the same decryption source overlay;
-UMS9620/UMS9230 also receive the legacy DRM overlay, and SC27XX vibrator
-support is enabled only when the vendor ramdisk contains its driver.
+newer use `twrp-14.1` with the `-ap2a` lunch variant. These trees receive the
+same decryption source overlay; UMS9620/UMS9230 also receive the legacy DRM
+overlay, and SC27XX vibrator support is enabled only when the vendor ramdisk
+contains its driver.
 
 Requires Python 3.8 or greater
 
