@@ -272,7 +272,7 @@ class DeviceTree:
 
 	def _copy_sprd_source_patches(self, sourcecode_path: Path):
 		"""Package the source overlay needed to build this generated tree."""
-		patch_root = source_patch_root()
+		patch_root = source_patch_root(self.sprd_profile)
 		files_path = sourcecode_path / "files"
 		patches = selected_source_patches(self.sprd_profile)
 
