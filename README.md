@@ -20,8 +20,14 @@ line, ramdisk table, and bootconfig directly from the input image.
   `twrp-14.1` with the `-ap2a` lunch variant; Android 13 and earlier selects
   `twrp-12.1`.
 - The generated vendor ramdisk keeps the stock DTB, first-stage fstab, kernel
-  modules, recovery fstab, ueventd configuration, and a TWRP fstab with a
-  slot-aware `vendor_boot` entry.
+  modules, recovery init/ueventd files, SELinux policy/context files, and the
+  complete vendor runtime (including Trusty/KeyMint) alongside a TWRP fstab
+  with a slot-aware `vendor_boot` entry. The stock `init.rc` is deliberately
+  excluded so it cannot replace TWRP's init entry point.
+- When the vendor ramdisk contains a stock SELinux policy, the tree also
+  packages `prebuilt/sepolicy.stock` and `tools/patch_stock_sepolicy.sh`.
+  Run that helper with `magiskpolicy` in `PATH` before building to regenerate
+  a permissive recovery policy from the preserved stock policy.
 
 The generated README records the selected source branch and exact lunch target.
 When a factory image exposes a generic Unisoc identity rather than the device
@@ -38,7 +44,8 @@ newer use `twrp-14.1` with the `-ap2a` lunch variant. `twrp-12.1` keeps the
 original bundled source overlay; `twrp-14.1` uses its separate TWRP 14.1
 overlay. UMS9620/UMS9230 also receive the legacy DRM overlay on the 12.1 path,
 and SC27XX vibrator support is enabled only when the vendor ramdisk contains
-its driver.
+its driver. Both profiles retain and patch a stock SELinux policy whenever the
+input ramdisk supplies one; there is no Android-version-based policy split.
 
 Requires Python 3.8 or greater
 
