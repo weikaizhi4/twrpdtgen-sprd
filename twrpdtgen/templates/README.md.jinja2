@@ -7,6 +7,11 @@ target `twrp_{{ device_info.codename }}{{ sprd_profile.lunch_suffix }}-eng`.
 The required source overlay is under `prebuilt/sourcecode`; run `./patch.sh`
 there before building and `./recovery.sh` after the build to restore the
 original files.
+{% if sprd_profile.copy_stock_selinux %}
+The stock SELinux policy is retained as `prebuilt/sepolicy.stock`. Run
+`tools/patch_stock_sepolicy.sh` with `magiskpolicy` available in `PATH` before
+building to regenerate the permissive recovery policy.
+{% endif %}
 {% if sprd_profile.uses_sc27xx_haptics %}
 The vendor ramdisk exposes an SC27XX vibrator, so the input haptics overlay is included.
 {% endif %}
