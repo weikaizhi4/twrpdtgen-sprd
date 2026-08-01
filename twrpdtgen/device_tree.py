@@ -83,7 +83,7 @@ class DeviceTree:
 			self.device_info.codename = codename
 		if manufacturer:
 			self.device_info.manufacturer = manufacturer
-		if self.vendor_boot is not None:
+		if self._is_sprd_platform():
 			self.sprd_profile = SprdBuildProfile.from_build_prop(
 				self.build_prop,
 				ramdisk=self.image_info.ramdisk,
@@ -161,6 +161,9 @@ class DeviceTree:
 		LOGD("Copying init scripts...")
 		for init_rc in self.init_rcs:
 			copyfile(init_rc, recovery_root_path / init_rc.name, follow_symlinks=True)
+
+		if self.sprd_profile is not None:
+			self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
 
 		if git:
 			self._initialize_git_repo(device_tree_folder)
@@ -276,6 +279,11 @@ class DeviceTree:
 		mode = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH
 		chmod(sourcecode_path / "patch.sh", mode)
 		chmod(sourcecode_path / "recovery.sh", mode)
+
+	def _is_sprd_platform(self) -> bool:
+		"""Recognize Unisoc UMS/SC platforms in both boot image layouts."""
+		platform = (self.device_info.platform or "").lower()
+		return platform.startswith(("ums", "sc986", "sc983", "sp986", "sp7731"))
 
 	@staticmethod
 	def _copy_file(source: Path, destination: Path):

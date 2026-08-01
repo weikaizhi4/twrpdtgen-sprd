@@ -148,6 +148,9 @@ LZMA_RAMDISK_TARGETS := recovery
 
 # Platform
 TARGET_BOARD_PLATFORM := {{ device_info.platform }}
+{% if sprd_profile %}
+BOARD_USES_SPRD_HARDWARE := true
+{% endif %}
 
 # Recovery
 {% if image_info.dtbo and not device_info.device_is_ab %}
@@ -177,9 +180,19 @@ BOARD_AVB_RECOVERY_ROLLBACK_INDEX_LOCATION := 1
 
 {% endif %}
 # Hack: prevent anti rollback
+{% if sprd_profile %}
+PLATFORM_VERSION := {{ sprd_profile.android_release }}
+{% if sprd_profile.security_patch %}
+PLATFORM_SECURITY_PATCH := {{ sprd_profile.security_patch }}
+{% endif %}
+{% if sprd_profile.vendor_security_patch %}
+VENDOR_SECURITY_PATCH := {{ sprd_profile.vendor_security_patch }}
+{% endif %}
+{% else %}
 PLATFORM_SECURITY_PATCH := 2099-12-31
 VENDOR_SECURITY_PATCH := 2099-12-31
 PLATFORM_VERSION := 16.1.0
+{% endif %}
 
 # TWRP Configuration
 TW_THEME := portrait_hdpi
@@ -187,6 +200,16 @@ TW_EXTRA_LANGUAGES := true
 TW_SCREEN_BLANK_ON_BOOT := true
 TW_INPUT_BLACKLIST := "hbtp_vm"
 TW_USE_TOOLBOX := true
+{% if sprd_profile %}
+TW_INCLUDE_CRYPTO := true
+TW_INCLUDE_CRYPTO_FBE := true
+{% if sprd_profile.uses_sc27xx_haptics %}
+TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
+{% endif %}
+{% if sprd_profile.needs_legacy_drm %}
+TW_DRM_LEGACY_MODESET := true
+{% endif %}
+{% endif %}
 {% if device_info.device_is_ab %}
 TW_INCLUDE_REPACKTOOLS := true
 {% endif %}

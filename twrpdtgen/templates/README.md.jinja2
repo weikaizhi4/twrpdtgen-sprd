@@ -1,6 +1,18 @@
 # Android device tree for {{ device_info.brand }} {{ device_info.model }} ({{ device_info.codename }})
 
+{% if sprd_profile %}
+This Unisoc tree uses the `{{ sprd_profile.recovery_branch }}` TWRP source
+branch for Android {{ sprd_profile.android_release }}. The required source
+overlay is under `prebuilt/sourcecode`; run `./patch.sh` there before building
+and `./recovery.sh` after the build to restore the original files.
+{% if sprd_profile.uses_sc27xx_haptics %}
+The vendor ramdisk exposes an SC27XX vibrator, so the input haptics overlay is included.
+{% endif %}
+{% if sprd_profile.needs_legacy_drm %}
+The UMS9620/UMS9230 legacy DRM modeset overlay is included.
+{% endif %}
+{% endif %}
+
 ```
 {% include 'LICENSE.jinja2' %}
 ```
-
