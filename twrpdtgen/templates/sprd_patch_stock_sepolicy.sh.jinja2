@@ -1,0 +1,29 @@
+#!/bin/sh
+# Rebuild recovery SELinux policy from the stock vendor_boot copy.
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+DEVICE_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+POLICY_TOOL=${MAGISKPOLICY:-magiskpolicy}
+STOCK_POLICY="$DEVICE_DIR/prebuilt/sepolicy.stock"
+OUTPUT_POLICY="$DEVICE_DIR/recovery/root/sepolicy"
+TEMP_POLICY=$(mktemp "${OUTPUT_POLICY}.tmp.XXXXXX")
+
+cleanup() {
+    rm -f "$TEMP_POLICY"
+}
+trap cleanup EXIT HUP INT TERM
+
+if ! command -v "$POLICY_TOOL" >/dev/null 2>&1; then
+    echo "magiskpolicy was not found; set MAGISKPOLICY=/path/to/magiskpolicy" >&2
+    exit 127
+fi
+test -f "$STOCK_POLICY"
+
+"$POLICY_TOOL" --load "$STOCK_POLICY" --save "$TEMP_POLICY" \
+    'permissive init' \
+    'permissive recovery'
+
+mv -f "$TEMP_POLICY" "$OUTPUT_POLICY"
+trap - EXIT
+echo "Patched $OUTPUT_POLICY from stock policy"
