@@ -1,6 +1,16 @@
 {% include 'LICENSE.jinja2' %}
 
 LOCAL_PATH := device/{{ device_info.manufacturer }}/{{ device_info.codename }}
+
+{% if sprd_profile %}
+# Preserve Unisoc recovery runtime files extracted from the stock boot image.
+SPRD_RECOVERY_ROOT_FILES := \
+    $(call find-copy-subdir-files,*,$(LOCAL_PATH)/recovery/root,recovery/root)
+
+PRODUCT_COPY_FILES += $(SPRD_RECOVERY_ROOT_FILES)
+SPRD_RECOVERY_ROOT_FILES :=
+
+{% endif %}
 {% if device_info.device_is_ab %}
 # A/B
 AB_OTA_POSTINSTALL_CONFIG += \
