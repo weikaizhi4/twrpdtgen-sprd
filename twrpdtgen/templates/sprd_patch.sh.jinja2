@@ -16,7 +16,7 @@ usage() {
 Usage: ./patch.sh [--check] [--force]
 
 Environment:
-  TWRP_SOURCE=/path/to/twrp-{{ sprd_profile.android_release }}  Override the detected TWRP source root.
+  TWRP_SOURCE=/path/to/{{ sprd_profile.recovery_branch }}  Override the detected TWRP source root.
 
 Options:
   --check  Show whether every source file is patched, original, or locally changed.
