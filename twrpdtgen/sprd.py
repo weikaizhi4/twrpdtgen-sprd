@@ -82,6 +82,11 @@ class SprdBuildProfile:
 		uses_sc27xx_haptics = _has_sc27xx_haptics(ramdisk)
 		needs_legacy_drm = platform in {"ums9620", "ums9230"}
 
+		# The Android version in prop.default can come from the system image while
+		# vendor_boot still carries an older vendor policy.  Preserve that policy
+		# whenever it is actually present; deciding from the system version caused
+		# UMS9621 recovery to lose its init/runtime dependencies.
+		copy_stock_selinux = bool(ramdisk and (ramdisk / "sepolicy").is_file())
 		major = _android_major(android_release)
 		if major >= 14:
 			return cls(
@@ -92,7 +97,7 @@ class SprdBuildProfile:
 				shipping_api_level=shipping_api_level,
 				recovery_branch="twrp-14.1",
 				lunch_platform="ap2a",
-				copy_stock_selinux=False,
+				copy_stock_selinux=copy_stock_selinux,
 				uses_sc27xx_haptics=uses_sc27xx_haptics,
 				needs_legacy_drm=needs_legacy_drm,
 			)
@@ -104,7 +109,7 @@ class SprdBuildProfile:
 			shipping_api_level=shipping_api_level,
 			recovery_branch="twrp-12.1",
 			lunch_platform="",
-			copy_stock_selinux=True,
+			copy_stock_selinux=copy_stock_selinux,
 			uses_sc27xx_haptics=uses_sc27xx_haptics,
 			needs_legacy_drm=needs_legacy_drm,
 		)
@@ -126,3 +131,16 @@ def _has_sc27xx_haptics(ramdisk: Optional[Path]) -> bool:
 		):
 			return True
 	return False
+
+
+def is_required_vendor_ramdisk_root_file(name: str) -> bool:
+	"""Return whether a top-level vendor_boot file must survive in TWRP."""
+	return (
+		name != "init.rc" and (
+			name == "sepolicy" or
+			name.endswith("_contexts") or
+			(name.startswith("init.recovery.") and name.endswith(".rc")) or
+			(name.startswith("ueventd") and name.endswith(".rc")) or
+			name.endswith(".sh")
+		)
+	)
