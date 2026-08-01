@@ -14,10 +14,12 @@ Run `./patch.sh` from that directory before building; it backs up each replaced
 source file to `original`. Run `./recovery.sh` to restore those originals.
 {% if sprd_profile.copy_stock_selinux %}
 
-This image carries a stock vendor SELinux policy. Before building, run
-`tools/patch_stock_sepolicy.sh` with `magiskpolicy` available in `PATH`; it
-rebuilds `recovery/root/sepolicy` from `prebuilt/sepolicy.stock` with `init`
-and `recovery` permissive.
+This image carries a stock vendor SELinux policy. The SPRD builder compiles
+`tools/patch_stock_sepolicy.c` and runs `tools/patch_stock_sepolicy.sh`
+automatically. For a local build, compile the C helper against static
+`libsepol`, set `SEPOLICY_PATCHER` to it, then run the shell helper; it rebuilds
+`recovery/root/sepolicy` from `prebuilt/sepolicy.stock` with `init` and
+`recovery` permissive.
 {% endif %}
 {% if sprd_profile.uses_sc27xx_haptics %}
 This device uses the SC27XX input vibrator overlay.
