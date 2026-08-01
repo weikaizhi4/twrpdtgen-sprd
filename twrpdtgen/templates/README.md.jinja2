@@ -2,9 +2,11 @@
 
 {% if sprd_profile %}
 This Unisoc tree uses the `{{ sprd_profile.recovery_branch }}` TWRP source
-branch for Android {{ sprd_profile.android_release }}. The required source
-overlay is under `prebuilt/sourcecode`; run `./patch.sh` there before building
-and `./recovery.sh` after the build to restore the original files.
+branch for Android {{ sprd_profile.android_release }}. Build it with lunch
+target `twrp_{{ device_info.codename }}{{ sprd_profile.lunch_suffix }}-eng`.
+The required source overlay is under `prebuilt/sourcecode`; run `./patch.sh`
+there before building and `./recovery.sh` after the build to restore the
+original files.
 {% if sprd_profile.uses_sc27xx_haptics %}
 The vendor ramdisk exposes an SC27XX vibrator, so the input haptics overlay is included.
 {% endif %}
