@@ -275,7 +275,7 @@ class DeviceTree:
 		copyfile(stock_policy, prebuilt_path / "sepolicy.stock")
 		tools_path = device_tree_folder / "tools"
 		tools_path.mkdir(parents=True, exist_ok=True)
-		self._render_template(tools_path, "sprd_patch_stock_sepolicy",
+		self._render_template(tools_path, "sprd_patch_stock_sepolicy.sh",
 			out_file="patch_stock_sepolicy.sh")
 		mode = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH
 		chmod(tools_path / "patch_stock_sepolicy.sh", mode)
