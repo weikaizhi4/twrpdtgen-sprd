@@ -161,7 +161,10 @@ class SprdBuildProfile:
 		) or android_sdk
 		platform = (platform or _first_prop(build_prop, "ro.board.platform") or "").lower()
 		uses_sc27xx_haptics = _has_sc27xx_haptics(ramdisk)
-		needs_legacy_drm = platform in {"ums9620", "ums9230"}
+		# Unisoc's DRM implementation on the UMS family is not reliable with
+		# atomic modesets in recovery. Keep the legacy CRTC path enabled for
+		# UMS9621 as well; this is the path used by the known-good tree.
+		needs_legacy_drm = platform.startswith("ums")
 		screen_size = _sprd_panel_screen_size(dtb)
 		screen_width = screen_size[0] if screen_size else None
 		screen_height = screen_size[1] if screen_size else None
