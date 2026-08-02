@@ -53,6 +53,13 @@ TWRP_14_SC27XX_HAPTICS_PATCHES = (
 	"vendor/twrp/config/BoardConfigSoong.mk",
 )
 
+# TWRP 14.1 already contains the Unisoc DRM implementation, but the build
+# variable must still be exported to Soong for UMS platforms.
+TWRP_14_LEGACY_DRM_PATCHES = (
+	"bootable/recovery/minuitwrp/libminuitwrp_defaults.go",
+	"vendor/twrp/config/BoardConfigSoong.mk",
+)
+
 SC27XX_HAPTICS_PATCHES = (
 	"bootable/recovery/minuitwrp/events.cpp",
 	"bootable/recovery/minuitwrp/libminuitwrp_defaults.go",
@@ -79,9 +86,11 @@ def selected_source_patches(profile: SprdBuildProfile) -> Tuple[str, ...]:
 	"""Return source paths compatible with the selected TWRP branch."""
 	if profile.recovery_branch == "twrp-14.1":
 		patches = list(TWRP_14_PATCHES)
+		if profile.needs_legacy_drm:
+			patches.extend(TWRP_14_LEGACY_DRM_PATCHES)
 		if profile.uses_sc27xx_haptics:
 			patches.extend(TWRP_14_SC27XX_HAPTICS_PATCHES)
-		return tuple(patches)
+		return tuple(dict.fromkeys(patches))
 
 	patches = list(TWRP_12_PATCHES)
 	if profile.uses_sc27xx_haptics:
