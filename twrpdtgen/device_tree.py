@@ -277,15 +277,27 @@ class DeviceTree:
 
 		entrypoint = recovery_root_path / f"init.recovery.{board}.rc"
 		common = recovery_root_path / "init.recovery.common.rc"
-		if entrypoint.exists() or not common.is_file():
+		if not common.is_file():
 			return
 
-		self._render_template(recovery_root_path, "sprd_init_recovery.rc",
-			out_file=entrypoint.name)
 		custom = recovery_root_path / "init.custom.rc"
 		if not custom.exists():
 			self._render_template(recovery_root_path, "sprd_init_custom.rc",
 				out_file=custom.name)
+
+		if not entrypoint.exists():
+			self._render_template(recovery_root_path, "sprd_init_recovery.rc",
+				out_file=entrypoint.name)
+			return
+
+		# Stock vendor_boot often already has this entrypoint. Preserve all of its
+		# services and append our recovery-only hook exactly once.
+		contents = entrypoint.read_text(encoding="utf-8")
+		if "import /init.custom.rc" not in contents:
+			entrypoint.write_text(
+				contents.rstrip() + "\n\nimport /init.custom.rc\n",
+				encoding="utf-8",
+			)
 
 	def _write_sprd_sepolicy_helper(self, device_tree_folder: Path, prebuilt_path: Path):
 		"""Package a reproducible stock-policy patch helper when one was extracted."""
