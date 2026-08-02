@@ -89,12 +89,13 @@ class DeviceTree:
 		if manufacturer:
 			self.device_info.manufacturer = manufacturer
 		if self._is_sprd_platform():
+			image_dtbo = getattr(self.image_info, "dtbo", None)
 			self.sprd_profile = SprdBuildProfile.from_build_prop(
 				self.build_prop,
 				ramdisk=self.image_info.ramdisk,
 				platform=self.device_info.platform,
 				dtb=self.image_info.dtb,
-				dtbo=self.image_info.dtbo,
+				dtbo=image_dtbo,
 			)
 			self.is_sprd_legacy_recovery = bool(
 				self.legacy_boot and self.legacy_boot.header_version <= 2 and
@@ -178,8 +179,9 @@ class DeviceTree:
 			copyfile(self.image_info.dt, prebuilt_path / "dt.img")
 		if self.image_info.dtb is not None:
 			copyfile(self.image_info.dtb, prebuilt_path / "dtb.img")
-		if self.image_info.dtbo is not None:
-			copyfile(self.image_info.dtbo, prebuilt_path / "dtbo.img")
+		image_dtbo = getattr(self.image_info, "dtbo", None)
+		if image_dtbo is not None:
+			copyfile(image_dtbo, prebuilt_path / "dtbo.img")
 
 		LOGD("Copying fstab...")
 		(device_tree_folder / "recovery.fstab").write_text(self.fstab.format(twrp=True))
