@@ -9,7 +9,7 @@ The generic path has been confirmed for Android 4.4 through Android 16.
 ## Unisoc vendor_boot
 
 This fork also recognizes Android `vendor_boot` v3/v4 images and generates a
-Unisoc/SPRD TWRP tree. It extracts the vendor ramdisk, DTB/DTBO, vendor command
+Unisoc/SPRD TWRP tree. It extracts the vendor ramdisk, DTB, vendor command
 line, ramdisk table, and bootconfig directly from the input image.
 
 - All generated Unisoc/SPRD products use `twrp_<codename>`, never
@@ -52,6 +52,9 @@ overlay. UMS platforms receive the legacy DRM build hook, and SC27XX vibrator
 support is enabled only when the vendor ramdisk contains its driver. Both
 profiles retain and patch a stock SELinux policy whenever the input ramdisk
 supplies one; there is no Android-version-based policy split.
+Himax touchscreen modules are detected from vendor ramdisk module names such
+as `panel-*-hx83102*.ko`; when present, the supplied touch-release fix is used
+for both TWRP source branches.
 Panel dimensions are read from the stock DTB first and then from every FDT
 entry in a DTBO image. This covers traditional UMS512 devices whose touch
 display coordinates exist only in a later DTBO overlay.
