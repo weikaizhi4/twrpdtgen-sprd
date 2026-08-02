@@ -7,7 +7,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from re import search
+from re import compile as re_compile, search
 from struct import unpack_from
 from typing import Optional
 
@@ -25,6 +25,9 @@ def _android_major(release: str) -> int:
 	if not match:
 		raise ValueError(f"cannot determine Android version from {release!r}")
 	return int(match.group())
+
+
+_HIMAX_MARKER = re_compile(r"(?:himax|hxchipset|hx8\d{3,})", flags=0)
 
 
 def _parse_sprd_panel_fdt(data: bytes, base: int) -> Optional[tuple]:
@@ -139,6 +142,7 @@ class SprdBuildProfile:
 	copy_stock_selinux: bool
 	uses_sc27xx_haptics: bool
 	needs_legacy_drm: bool
+	uses_himax_touch: bool
 
 	@property
 	def lunch_suffix(self) -> str:
@@ -182,6 +186,7 @@ class SprdBuildProfile:
 		) or android_sdk
 		platform = (platform or _first_prop(build_prop, "ro.board.platform") or "").lower()
 		uses_sc27xx_haptics = _has_sc27xx_haptics(ramdisk)
+		uses_himax_touch = _has_himax_touch(ramdisk)
 		# Unisoc's DRM implementation on the UMS family is not reliable with
 		# atomic modesets in recovery. Keep the legacy CRTC path enabled for
 		# UMS9621 as well; this is the path used by the known-good tree.
@@ -212,6 +217,7 @@ class SprdBuildProfile:
 				copy_stock_selinux=copy_stock_selinux,
 				uses_sc27xx_haptics=uses_sc27xx_haptics,
 				needs_legacy_drm=needs_legacy_drm,
+				uses_himax_touch=uses_himax_touch,
 			)
 		return cls(
 			android_release=android_release,
@@ -226,6 +232,7 @@ class SprdBuildProfile:
 			copy_stock_selinux=copy_stock_selinux,
 			uses_sc27xx_haptics=uses_sc27xx_haptics,
 			needs_legacy_drm=needs_legacy_drm,
+			uses_himax_touch=uses_himax_touch,
 		)
 
 
@@ -244,6 +251,27 @@ def _has_sc27xx_haptics(ramdisk: Optional[Path]) -> bool:
 			"vibra" in name or "vibrator" in name or "haptic" in name
 		):
 			return True
+	return False
+
+
+def _has_himax_touch(ramdisk: Optional[Path]) -> bool:
+	"""Detect Himax touchscreen drivers retained in a vendor ramdisk."""
+	if ramdisk is None or not ramdisk.is_dir():
+		return False
+
+	# Vendor images commonly expose names such as
+	# panel-boe-hx83102e-vdo(-spi).ko. Restrict the marker to file names to
+	# avoid matching unrelated binary strings from the rest of the ramdisk.
+	for root in (
+		ramdisk / "lib" / "modules",
+		ramdisk / "vendor" / "lib" / "modules",
+		ramdisk / "odm" / "lib" / "modules",
+	):
+		if not root.is_dir():
+			continue
+		for module in root.rglob("*"):
+			if module.is_file() and _HIMAX_MARKER.search(module.name.lower()):
+				return True
 	return False
 
 
