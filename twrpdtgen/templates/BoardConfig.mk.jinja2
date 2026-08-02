@@ -82,11 +82,6 @@ BOARD_DTB_OFFSET := {{ legacy_boot.dtb_addr_hex }}
 {% if legacy_boot.cmdline %}
 BOARD_KERNEL_CMDLINE := {{ legacy_boot.cmdline }}
 {% endif %}
-{% if 'androidboot.selinux=permissive' not in legacy_boot.cmdline %}
-# Traditional Unisoc recovery uses the stock vendor services with a permissive
-# recovery kernel command line; this is required when the ramdisk has no policy.
-BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
-{% endif %}
 BOARD_MKBOOTIMG_ARGS += --header_version $(BOARD_BOOTIMG_HEADER_VERSION)
 BOARD_MKBOOTIMG_ARGS += --kernel_offset $(BOARD_KERNEL_OFFSET)
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset $(BOARD_RAMDISK_OFFSET)
