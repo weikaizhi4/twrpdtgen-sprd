@@ -22,6 +22,10 @@ The vendor ramdisk exposes an SC27XX vibrator, so the input haptics overlay is i
 {% if sprd_profile.needs_legacy_drm %}
 The UMS legacy DRM modeset overlay is included.
 {% endif %}
+{% if sprd_profile.uses_himax_touch %}
+The vendor ramdisk exposes a Himax touchscreen module. The branch-neutral
+Himax `minuitwrp/events.cpp` touch-release overlay is included.
+{% endif %}
 {% endif %}
 
 ```
