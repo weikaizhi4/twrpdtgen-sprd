@@ -9,7 +9,7 @@ The generic path has been confirmed for Android 4.4 through Android 16.
 ## Unisoc vendor_boot
 
 This fork also recognizes Android `vendor_boot` v3/v4 images and generates a
-Unisoc/SPRD TWRP tree. It extracts the vendor ramdisk, DTB, vendor command
+Unisoc/SPRD TWRP tree. It extracts the vendor ramdisk, DTB/DTBO, vendor command
 line, ramdisk table, and bootconfig directly from the input image.
 
 - All generated Unisoc/SPRD products use `twrp_<codename>`, never
@@ -25,9 +25,11 @@ line, ramdisk table, and bootconfig directly from the input image.
   with a slot-aware `vendor_boot` entry. The stock `init.rc` is deliberately
   excluded so it cannot replace TWRP's init entry point.
 - When the vendor ramdisk contains a stock SELinux policy, the tree also
-  packages `prebuilt/sepolicy.stock` and `tools/patch_stock_sepolicy.sh`.
-  Run that helper with `magiskpolicy` in `PATH` before building to regenerate
-  a permissive recovery policy from the preserved stock policy.
+  packages `prebuilt/sepolicy.stock`, `tools/patch_stock_sepolicy.sh`, and a
+  small `libsepol` host helper source. The SPRD builder compiles and runs it
+  automatically. For a local build, compile `tools/patch_stock_sepolicy.c`
+  with `-Wl,-Bstatic -lsepol -Wl,-Bdynamic`, then set
+  `SEPOLICY_PATCHER` to that executable before running the shell helper.
 
 The generated README records the selected source branch and exact lunch target.
 When a factory image exposes a generic Unisoc identity rather than the device
@@ -38,14 +40,21 @@ python3 -m twrpdtgen your_vendor_boot.img \
     --manufacturer Manufacturer --codename Codename
 ```
 
-Traditional Android `boot.img` images from UMS/SC platforms are supported as
-well. Android 13 and earlier use the `twrp-12.1` profile, while Android 14 and
+Traditional Android `boot.img`/`recovery.img` images from UMS/SC platforms are
+supported as well. For v0-v2 images the generator reads the boot header
+directly, preserving the kernel/ramdisk/tags/DTB offsets, page size, recovery
+DTBO metadata, and command line. The stock fstab is installed at
+`recovery/root/system/etc/recovery.fstab`, which matches the Android 11
+traditional recovery layout. Android 13 and earlier use the `twrp-12.1` profile, while Android 14 and
 newer use `twrp-14.1` with the `-ap2a` lunch variant. `twrp-12.1` keeps the
 original bundled source overlay; `twrp-14.1` uses its separate TWRP 14.1
-overlay. UMS9620/UMS9230 also receive the legacy DRM overlay on the 12.1 path,
-and SC27XX vibrator support is enabled only when the vendor ramdisk contains
-its driver. Both profiles retain and patch a stock SELinux policy whenever the
-input ramdisk supplies one; there is no Android-version-based policy split.
+overlay. UMS platforms receive the legacy DRM build hook, and SC27XX vibrator
+support is enabled only when the vendor ramdisk contains its driver. Both
+profiles retain and patch a stock SELinux policy whenever the input ramdisk
+supplies one; there is no Android-version-based policy split.
+Panel dimensions are read from the stock DTB first and then from every FDT
+entry in a DTBO image. This covers traditional UMS512 devices whose touch
+display coordinates exist only in a later DTBO overlay.
 
 Requires Python 3.8 or greater
 
