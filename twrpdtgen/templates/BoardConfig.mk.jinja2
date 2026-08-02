@@ -55,12 +55,47 @@ TARGET_NO_BOOTLOADER := true
 {% if device_info.screen_density %}
 TARGET_SCREEN_DENSITY := {{ device_info.screen_density }}
 {% endif %}
+{% if sprd_profile and sprd_profile.screen_width and sprd_profile.screen_height %}
+# Read from the stock Unisoc panel or touchscreen display-coords property.
+TARGET_SCREEN_WIDTH := {{ sprd_profile.screen_width }}
+TARGET_SCREEN_HEIGHT := {{ sprd_profile.screen_height }}
+{% endif %}
 {% if device_info.use_vulkan %}
 TARGET_USES_VULKAN := true
 {% endif %}
 
 {% endif %}
 # Kernel
+{% if is_sprd_legacy_recovery %}
+# Traditional Unisoc recovery image. These values are read directly from the
+# stock Android boot header rather than inferred from the unpacking tool.
+BOARD_BOOTIMG_HEADER_VERSION := {{ legacy_boot.header_version }}
+BOARD_KERNEL_BASE := 0x00000000
+BOARD_KERNEL_PAGESIZE := {{ legacy_boot.page_size }}
+BOARD_KERNEL_OFFSET := {{ legacy_boot.kernel_addr_hex }}
+BOARD_SECOND_OFFSET := 0x00000000
+BOARD_RAMDISK_OFFSET := {{ legacy_boot.ramdisk_addr_hex }}
+BOARD_KERNEL_TAGS_OFFSET := {{ legacy_boot.tags_addr_hex }}
+{% if legacy_boot.dtb_size %}
+BOARD_DTB_OFFSET := {{ legacy_boot.dtb_addr_hex }}
+{% endif %}
+{% if legacy_boot.cmdline %}
+BOARD_KERNEL_CMDLINE := {{ legacy_boot.cmdline }}
+{% endif %}
+{% if 'androidboot.selinux=permissive' not in legacy_boot.cmdline %}
+# Traditional Unisoc recovery uses the stock vendor services with a permissive
+# recovery kernel command line; this is required when the ramdisk has no policy.
+BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
+{% endif %}
+BOARD_MKBOOTIMG_ARGS += --header_version $(BOARD_BOOTIMG_HEADER_VERSION)
+BOARD_MKBOOTIMG_ARGS += --kernel_offset $(BOARD_KERNEL_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --ramdisk_offset $(BOARD_RAMDISK_OFFSET)
+BOARD_MKBOOTIMG_ARGS += --tags_offset $(BOARD_KERNEL_TAGS_OFFSET)
+{% if legacy_boot.dtb_size %}
+BOARD_MKBOOTIMG_ARGS += --dtb_offset $(BOARD_DTB_OFFSET)
+{% endif %}
+BOARD_KERNEL_IMAGE_NAME := Image
+{% else %}
 {% if image_info.header_version != "0" %}
 BOARD_BOOTIMG_HEADER_VERSION := {{ image_info.header_version }}
 {% endif %}
@@ -89,6 +124,7 @@ BOARD_MKBOOTIMG_ARGS += --ramdisk_offset $(BOARD_RAMDISK_OFFSET)
 BOARD_MKBOOTIMG_ARGS += --tags_offset $(BOARD_KERNEL_TAGS_OFFSET)
 {% endif %}
 BOARD_KERNEL_IMAGE_NAME := Image
+{% endif %}
 {% if image_info.dt %}
 BOARD_KERNEL_SEPARATED_DT := true
 {% endif %}
@@ -128,8 +164,13 @@ BOARD_BUILD_SYSTEM_ROOT_IMAGE := true
 {% if image_info.pagesize %}
 BOARD_FLASH_BLOCK_SIZE := {{ image_info.pagesize|int * 64 }} # (BOARD_KERNEL_PAGESIZE * 64)
 {% endif %}
+{% if is_sprd_legacy_recovery %}
+# A standalone recovery image does not reveal the boot partition capacity.
+BOARD_RECOVERYIMAGE_PARTITION_SIZE := {{ legacy_boot.image_size }}
+{% else %}
 BOARD_BOOTIMAGE_PARTITION_SIZE := {{ image_info.origsize }}
 BOARD_RECOVERYIMAGE_PARTITION_SIZE := {{ image_info.origsize }}
+{% endif %}
 BOARD_HAS_LARGE_FILESYSTEM := true
 {% set system_partition = fstab.get_partition_by_mount_point('/system') %}
 {% set product_partition = fstab.get_partition_by_mount_point('/product') %}
@@ -169,10 +210,13 @@ BOARD_USES_SPRD_HARDWARE := true
 {% if image_info.dtbo and not device_info.device_is_ab %}
 BOARD_INCLUDE_RECOVERY_DTBO := true
 {% endif %}
+{% if is_sprd_legacy_recovery %}
+TARGET_RECOVERY_FSTAB := $(DEVICE_PATH)/recovery/root/system/etc/recovery.fstab
+{% endif %}
 {% if device_info.device_pixel_format %}
 TARGET_RECOVERY_PIXEL_FORMAT := {{ device_info.device_pixel_format }}
 {% endif %}
-{% if sprd_profile %}
+{% if sprd_profile and not is_sprd_legacy_recovery %}
 # The recovery root is read-only; do not stage an additional fstab under /etc.
 TW_SKIP_ADDITIONAL_FSTAB := true
 TW_EMBEDDED_VENDOR_LIBS := true
@@ -219,8 +263,29 @@ TW_SCREEN_BLANK_ON_BOOT := true
 TW_INPUT_BLACKLIST := "hbtp_vm"
 TW_USE_TOOLBOX := true
 {% if sprd_profile %}
+{% if is_sprd_legacy_recovery %}
+# Android 11 Unisoc traditional recovery has no usable keymaster/FBE service.
+TW_INCLUDE_CRYPTO := false
+TW_INCLUDE_CRYPTO_FBE := false
+TWRP_INCLUDE_LOGCAT := true
+TARGET_USES_LOGD := true
+TW_NO_HAPTICS := true
+TW_INCLUDE_REPACKTOOLS := true
+TW_INCLUDE_RESETPROP := true
+TW_INCLUDE_LIBRESETPROP := true
+TW_NO_FLASH_CURRENT_TWRP := true
+TW_NO_FASTBOOT_BOOT := true
+TARGET_EXCLUDE_BOOTCTRL := true
+TARGET_NO_UPDATE_ENGINE := true
+TARGET_NO_RECOVERY_UPDATE_ENGINE := true
+TARGET_BOOTCTRL_DISABLE := true
+TARGET_BOARD_PLATFORM_NO_BOOTCTRL := true
+USE_GENERIC_BOOTCTRL_HEADERS := true
+BOARD_BOOTCTRL_HEADER_VERSION := 0
+{% else %}
 TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
+{% endif %}
 {% if sprd_profile.uses_sc27xx_haptics %}
 TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
 {% endif %}
