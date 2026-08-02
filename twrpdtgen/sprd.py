@@ -27,14 +27,8 @@ def _android_major(release: str) -> int:
 	return int(match.group())
 
 
-def _sprd_panel_screen_size(dtb: Optional[Path]) -> Optional[tuple]:
-	"""Read the generic MIPI panel resolution from a stock Unisoc DTB."""
-	if dtb is None or not dtb.is_file():
-		return None
-
-	data = dtb.read_bytes()
-	magic = b"\xd0\x0d\xfe\xed"
-	base = data.find(magic)
+def _parse_sprd_panel_fdt(data: bytes, base: int) -> Optional[tuple]:
+	"""Read a panel resolution from one flattened device-tree blob."""
 	if base < 0 or len(data) - base < 40:
 		return None
 
@@ -63,6 +57,7 @@ def _sprd_panel_screen_size(dtb: Optional[Path]) -> Optional[tuple]:
 		return (offset + 3) & ~3
 
 	stack = []
+	display_coords = None
 	cursor = struct_start
 	while cursor + 4 <= end:
 		tag = unpack_from(">I", data, cursor)[0]
@@ -75,9 +70,14 @@ def _sprd_panel_screen_size(dtb: Optional[Path]) -> Optional[tuple]:
 			cursor = aligned(stop + 1)
 		elif tag == 2:  # FDT_END_NODE
 			if not stack:
-				return None
+				return display_coords
 			node = stack.pop()
 			if node.get("compatible") != b"sprd,generic-mipi-panel\0":
+				coords = node.get("focaltech,display-coords") or node.get("display-coords")
+				if coords is not None and len(coords) == 16:
+					x0, y0, x1, y1 = unpack_from(">4I", coords)
+					if x1 >= x0 and y1 >= y0:
+						display_coords = (x1 - x0 + 1, y1 - y0 + 1)
 				continue
 			width = node.get("sprd,sr-width")
 			height = node.get("sprd,sr-height")
@@ -101,7 +101,27 @@ def _sprd_panel_screen_size(dtb: Optional[Path]) -> Optional[tuple]:
 			break
 		else:
 			return None
-	return None
+	return display_coords
+
+
+def _sprd_panel_screen_size(dtb: Optional[Path]) -> Optional[tuple]:
+	"""Read panel resolution from a DTB or any FDT entry in a DTBO image."""
+	if dtb is None or not dtb.is_file():
+		return None
+
+	data = dtb.read_bytes()
+	magic = b"\xd0\x0d\xfe\xed"
+	search_from = 0
+	while True:
+		base = data.find(magic, search_from)
+		if base < 0:
+			return None
+		resolution = _parse_sprd_panel_fdt(data, base)
+		if resolution is not None:
+			return resolution
+		# A DTBO contains several FDTs. Continue after malformed or irrelevant
+		# entries instead of treating the first one as the complete image.
+		search_from = base + len(magic)
 
 
 @dataclass(frozen=True)
@@ -127,7 +147,8 @@ class SprdBuildProfile:
 	@classmethod
 	def from_build_prop(cls, build_prop, ramdisk: Optional[Path] = None,
 						platform: Optional[str] = None,
-						dtb: Optional[Path] = None) -> "SprdBuildProfile":
+						dtb: Optional[Path] = None,
+						dtbo: Optional[Path] = None) -> "SprdBuildProfile":
 		android_release = _first_prop(
 			build_prop,
 			"ro.system.build.version.release",
@@ -166,6 +187,8 @@ class SprdBuildProfile:
 		# UMS9621 as well; this is the path used by the known-good tree.
 		needs_legacy_drm = platform.startswith("ums")
 		screen_size = _sprd_panel_screen_size(dtb)
+		if screen_size is None:
+			screen_size = _sprd_panel_screen_size(dtbo)
 		screen_width = screen_size[0] if screen_size else None
 		screen_height = screen_size[1] if screen_size else None
 
