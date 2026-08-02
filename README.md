@@ -55,6 +55,9 @@ supplies one; there is no Android-version-based policy split.
 Panel dimensions are read from the stock DTB first and then from every FDT
 entry in a DTBO image. This covers traditional UMS512 devices whose touch
 display coordinates exist only in a later DTBO overlay.
+The generated recovery rc uses an init `write` action for the recovery-only
+SELinux enforcement switch; it does not append `androidboot.selinux` to a
+shared vendor_boot command line.
 
 Requires Python 3.8 or greater
 
