@@ -1,3 +1,5 @@
 # Keep recovery permissive after the stock policy is patched at build time.
 on init
-    exec u:r:init:s0 root root -- /system/bin/setenforce 0
+    # Use inits builtin so this works before /system/bin is available and
+    # does not depend on a recovery-domain transition for setenforce.
+    setenforce 0
