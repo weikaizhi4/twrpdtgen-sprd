@@ -12,7 +12,9 @@ The stock SELinux policy is retained as `prebuilt/sepolicy.stock`. The SPRD
 builder compiles `tools/patch_stock_sepolicy.c` and runs
 `tools/patch_stock_sepolicy.sh` automatically. For a local build, compile the
 C helper against static `libsepol`, set `SEPOLICY_PATCHER` to the resulting
-executable, then run the shell helper before building.
+executable, then run the shell helper before building. Recovery switches the
+SELinux enforcement sysfs node from its recovery-only init rc; the shared
+vendor_boot command line is not changed.
 {% endif %}
 {% if sprd_profile.uses_sc27xx_haptics %}
 The vendor ramdisk exposes an SC27XX vibrator, so the input haptics overlay is included.
