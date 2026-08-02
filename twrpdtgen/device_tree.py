@@ -18,7 +18,7 @@ from stat import S_IRWXU, S_IRGRP, S_IROTH, S_IXGRP, S_IXOTH
 from re import fullmatch, sub
 from twrpdtgen import __version__ as version
 from twrpdtgen.sprd import SprdBuildProfile, is_required_vendor_ramdisk_root_file
-from twrpdtgen.source_patches import selected_source_patches, source_patch_root
+from twrpdtgen.source_patches import selected_source_patches, source_patch_path
 from twrpdtgen.templates import render_template
 from typing import List
 from twrpdtgen.vendor_boot import VendorBootImage
@@ -359,13 +359,12 @@ class DeviceTree:
 
 	def _copy_sprd_source_patches(self, sourcecode_path: Path):
 		"""Package the source overlay needed to build this generated tree."""
-		patch_root = source_patch_root(self.sprd_profile)
 		files_path = sourcecode_path / "files"
 		patches = selected_source_patches(self.sprd_profile)
 
 		LOGD("Copying SPRD TWRP source overlay")
 		for relative_path in patches:
-			source = patch_root / relative_path
+			source = source_patch_path(self.sprd_profile, relative_path)
 			if not source.is_file():
 				raise FileNotFoundError(f"Bundled source patch is missing: {source}")
 			self._copy_file(source, files_path / relative_path)
