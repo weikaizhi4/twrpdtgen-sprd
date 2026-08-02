@@ -22,6 +22,12 @@ test -f "$STOCK_POLICY"
 
 "$POLICY_TOOL" "$STOCK_POLICY" "$TEMP_POLICY" init recovery
 
+# A no-op patch would leave recovery with the restrictive factory policy.
+if cmp -s "$STOCK_POLICY" "$TEMP_POLICY"; then
+    echo "SELinux policy patcher produced an unchanged policy" >&2
+    exit 1
+fi
+
 mv -f "$TEMP_POLICY" "$OUTPUT_POLICY"
 trap - EXIT
 echo "Patched $OUTPUT_POLICY from stock policy"
