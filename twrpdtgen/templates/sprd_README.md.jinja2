@@ -27,3 +27,7 @@ This device uses the SC27XX input vibrator overlay.
 {% if sprd_profile.needs_legacy_drm %}
 This platform also includes the UMS9620/UMS9230 legacy DRM modeset overlay.
 {% endif %}
+{% if sprd_profile.uses_himax_touch %}
+The vendor ramdisk exposes a Himax touchscreen module. The branch-neutral
+Himax `minuitwrp/events.cpp` touch-release overlay is included.
+{% endif %}
