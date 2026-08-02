@@ -72,6 +72,12 @@ LEGACY_DRM_PATCHES = (
 	"vendor/twrp/config/BoardConfigSoong.mk",
 )
 
+# The Himax touch fix is branch-neutral and intentionally lives in a separate
+# overlay so non-Himax SC27XX/DRM selections keep their normal events.cpp.
+HIMAX_TOUCH_PATCHES = (
+	"bootable/recovery/minuitwrp/events.cpp",
+)
+
 
 def source_patch_root(profile: Optional[SprdBuildProfile] = None) -> Path:
 	"""Locate the bundled source overlay for the selected TWRP branch."""
@@ -82,6 +88,24 @@ def source_patch_root(profile: Optional[SprdBuildProfile] = None) -> Path:
 	raise FileNotFoundError(f"Bundled {directory} directory was not found")
 
 
+def himax_patch_root() -> Path:
+	"""Locate the branch-neutral Himax source overlay."""
+	for candidate in (module_path.parent / "HimaxPatches", module_path / "HimaxPatches"):
+		if candidate.is_dir():
+			return candidate
+	raise FileNotFoundError("Bundled HimaxPatches directory was not found")
+
+
+def source_patch_path(profile: SprdBuildProfile, relative_path: str) -> Path:
+	"""Resolve a selected source file, including optional hardware overlays."""
+	if (
+		getattr(profile, "uses_himax_touch", False) and
+		relative_path in HIMAX_TOUCH_PATCHES
+	):
+		return himax_patch_root() / relative_path
+	return source_patch_root(profile) / relative_path
+
+
 def selected_source_patches(profile: SprdBuildProfile) -> Tuple[str, ...]:
 	"""Return source paths compatible with the selected TWRP branch."""
 	if profile.recovery_branch == "twrp-14.1":
@@ -90,6 +114,8 @@ def selected_source_patches(profile: SprdBuildProfile) -> Tuple[str, ...]:
 			patches.extend(TWRP_14_LEGACY_DRM_PATCHES)
 		if profile.uses_sc27xx_haptics:
 			patches.extend(TWRP_14_SC27XX_HAPTICS_PATCHES)
+		if getattr(profile, "uses_himax_touch", False):
+			patches.extend(HIMAX_TOUCH_PATCHES)
 		return tuple(dict.fromkeys(patches))
 
 	patches = list(TWRP_12_PATCHES)
@@ -97,4 +123,6 @@ def selected_source_patches(profile: SprdBuildProfile) -> Tuple[str, ...]:
 		patches.extend(SC27XX_HAPTICS_PATCHES)
 	if profile.needs_legacy_drm:
 		patches.extend(LEGACY_DRM_PATCHES)
+	if getattr(profile, "uses_himax_touch", False):
+		patches.extend(HIMAX_TOUCH_PATCHES)
 	return tuple(dict.fromkeys(patches))
