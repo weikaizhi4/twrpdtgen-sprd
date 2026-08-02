@@ -22,6 +22,7 @@ from twrpdtgen.source_patches import selected_source_patches, source_patch_root
 from twrpdtgen.templates import render_template
 from typing import List
 from twrpdtgen.vendor_boot import VendorBootImage
+from twrpdtgen.legacy_boot import LegacyBootImage
 
 BUILDPROP_LOCATIONS = [Path() / "default.prop",
                        Path() / "prop.default",]
@@ -51,7 +52,9 @@ class DeviceTree:
 		self.image = image
 		self.aik_manager = None
 		self.vendor_boot = None
+		self.legacy_boot = None
 		self.sprd_profile = None
+		self.is_sprd_legacy_recovery = False
 
 		self.current_year = str(datetime.now().year)
 
@@ -65,6 +68,8 @@ class DeviceTree:
 			self.vendor_boot = VendorBootImage(image)
 			self.image_info = self.vendor_boot.info
 		else:
+			if LegacyBootImage.is_legacy_boot(image):
+				self.legacy_boot = LegacyBootImage(image).info
 			self.aik_manager = AIKManager()
 			self.image_info = self.aik_manager.unpackimg(image)
 
@@ -89,16 +94,23 @@ class DeviceTree:
 				ramdisk=self.image_info.ramdisk,
 				platform=self.device_info.platform,
 				dtb=self.image_info.dtb,
+				dtbo=self.image_info.dtbo,
+			)
+			self.is_sprd_legacy_recovery = bool(
+				self.legacy_boot and self.legacy_boot.header_version <= 2 and
+				not self.device_info.device_is_ab
 			)
 
 		# Generate fstab
 		fstab = None
+		self.fstab_source = None
 		for fstab_location in [self.image_info.ramdisk / location for location in FSTAB_LOCATIONS]:
 			if not fstab_location.is_file():
 				continue
 
 			LOGD(f"Generating fstab using {fstab} as reference...")
 			fstab = Fstab(fstab_location)
+			self.fstab_source = fstab_location
 			break
 
 		if fstab is None:
@@ -178,6 +190,8 @@ class DeviceTree:
 
 		if self.sprd_profile is not None:
 			self._copy_sprd_vendor_ramdisk(recovery_root_path, self.image_info.ramdisk)
+			if self.is_sprd_legacy_recovery:
+				self._write_sprd_legacy_recovery_fstab(recovery_root_path)
 			self._write_sprd_recovery_init(recovery_root_path)
 			self._write_sprd_sepolicy_helper(device_tree_folder, prebuilt_path)
 			self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
@@ -264,7 +278,11 @@ class DeviceTree:
 		if vendor.is_dir():
 			copytree(vendor, recovery_root_path / "vendor")
 
-		for relative_path in ("system/etc/vintf/manifest.xml", "system/etc/twrp.flags"):
+		for relative_path in (
+			"system/etc/vintf/manifest.xml",
+			"system/etc/twrp.flags",
+			"system/etc/ueventd.rc",
+		):
 			source = stock_root / relative_path
 			if source.is_file():
 				self._copy_file(source, recovery_root_path / relative_path)
@@ -327,6 +345,15 @@ class DeviceTree:
 		(recovery_root_path / "system" / "etc" / "twrp.fstab").write_text(
 			contents, encoding="utf-8"
 		)
+
+	def _write_sprd_legacy_recovery_fstab(self, recovery_root_path: Path):
+		"""Keep a traditional Unisoc recovery fstab at Android's expected path."""
+		destination = recovery_root_path / "system" / "etc" / "recovery.fstab"
+		destination.parent.mkdir(parents=True, exist_ok=True)
+		if self.fstab_source is not None:
+			copyfile(self.fstab_source, destination, follow_symlinks=True)
+		else:
+			destination.write_text(self.fstab.format(twrp=True), encoding="utf-8")
 
 	def _copy_sprd_source_patches(self, sourcecode_path: Path):
 		"""Package the source overlay needed to build this generated tree."""
@@ -400,6 +427,8 @@ class DeviceTree:
 		                       fstab=self.fstab,
 		                       image_info=self.image_info,
 		                       sprd_profile=self.sprd_profile,
+		                       legacy_boot=self.legacy_boot,
+		                       is_sprd_legacy_recovery=self.is_sprd_legacy_recovery,
 		                       vendor_boot=self.vendor_boot.info if self.vendor_boot else None,
 		                       version=version,
 		                       **kwargs)
