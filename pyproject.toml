@@ -11,6 +11,7 @@ repository = "https://github.com/twrpdtgen/twrpdtgen"
 include = [
     { path = "SourcePatches", format = ["sdist", "wheel"] },
     { path = "SourcePatches14", format = ["sdist", "wheel"] },
+    { path = "HimaxPatches", format = ["sdist", "wheel"] },
 ]
 
 [tool.poetry.scripts]
