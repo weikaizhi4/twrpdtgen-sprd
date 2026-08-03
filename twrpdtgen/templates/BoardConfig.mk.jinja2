@@ -79,9 +79,9 @@ BOARD_KERNEL_TAGS_OFFSET := {{ legacy_boot.tags_addr_hex }}
 {% if legacy_boot.dtb_size %}
 BOARD_DTB_OFFSET := {{ legacy_boot.dtb_addr_hex }}
 {% endif %}
-{% if legacy_boot.cmdline %}
-BOARD_KERNEL_CMDLINE := {{ legacy_boot.cmdline }}
-{% endif %}
+# This is a standalone recovery.img, so its command line is not shared with
+# normal Android boot. Force permissive mode before first-stage init starts.
+BOARD_KERNEL_CMDLINE := {{ legacy_boot.cmdline }}{% if legacy_boot.cmdline %} {% endif %}androidboot.selinux=permissive
 BOARD_MKBOOTIMG_ARGS += --header_version $(BOARD_BOOTIMG_HEADER_VERSION)
 BOARD_MKBOOTIMG_ARGS += --kernel_offset $(BOARD_KERNEL_OFFSET)
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset $(BOARD_RAMDISK_OFFSET)
@@ -287,7 +287,7 @@ TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
 {% if sprd_profile.needs_legacy_drm %}
 TW_DRM_LEGACY_MODESET := true
 {% endif %}
-{% if sprd_profile.copy_stock_selinux %}
+{% if sprd_profile.copy_stock_selinux and not is_sprd_legacy_recovery %}
 # Run tools/patch_stock_sepolicy.sh with a libsepol-backed SEPOLICY_PATCHER before building.
 {% endif %}
 {% endif %}
