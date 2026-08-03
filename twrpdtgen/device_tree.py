@@ -194,8 +194,9 @@ class DeviceTree:
 			self._copy_sprd_vendor_ramdisk(recovery_root_path, self.image_info.ramdisk)
 			if self.is_sprd_legacy_recovery:
 				self._write_sprd_legacy_recovery_fstab(recovery_root_path)
-			self._write_sprd_recovery_init(recovery_root_path)
-			self._write_sprd_sepolicy_helper(device_tree_folder, prebuilt_path)
+			else:
+				self._write_sprd_recovery_init(recovery_root_path)
+				self._write_sprd_sepolicy_helper(device_tree_folder, prebuilt_path)
 			self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
 
 		if git:
@@ -332,6 +333,14 @@ class DeviceTree:
 			out_file="patch_stock_sepolicy.sh")
 		self._render_template(tools_path, "sprd_patch_stock_sepolicy.c",
 			out_file="patch_stock_sepolicy.c", comment_prefix="//")
+		# Android 14.1 vendor_boot trees need a recovery policy overlay in
+		# addition to the retained stock binary. It allows TWRP's UI mmap, DRM,
+		# input, and dynamic-partition helpers to run before /vendor is mounted.
+		if self.sprd_profile.recovery_branch == "twrp-14.1":
+			sepolicy_path = device_tree_folder / "sepolicy"
+			sepolicy_path.mkdir(parents=True, exist_ok=True)
+			self._render_template(sepolicy_path, "sprd_recovery.te",
+				out_file="recovery.te")
 		mode = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH
 		chmod(tools_path / "patch_stock_sepolicy.sh", mode)
 
