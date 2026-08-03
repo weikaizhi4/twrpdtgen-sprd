@@ -8,13 +8,20 @@ The required source overlay is under `prebuilt/sourcecode`; run `./patch.sh`
 there before building and `./recovery.sh` after the build to restore the
 original files.
 {% if sprd_profile.copy_stock_selinux %}
+{% if is_sprd_legacy_recovery %}
+The original SELinux policy is retained unchanged in `recovery/root/sepolicy`.
+Because this tree builds a standalone `recovery.img`, its generated kernel
+command line includes `androidboot.selinux=permissive`. This image is not used
+for normal Android boot, so the override cannot affect the stock boot image.
+{% else %}
 The stock SELinux policy is retained as `prebuilt/sepolicy.stock`. The SPRD
 builder compiles `tools/patch_stock_sepolicy.c` and runs
 `tools/patch_stock_sepolicy.sh` automatically. For a local build, compile the
 C helper against static `libsepol`, set `SEPOLICY_PATCHER` to the resulting
-executable, then run the shell helper before building. Recovery switches the
-SELinux enforcement sysfs node from its recovery-only init rc; the shared
-vendor_boot command line is not changed.
+executable, then run the shell helper before building.
+Recovery switches the SELinux enforcement sysfs node from its recovery-only
+init rc; the shared vendor_boot command line is not changed.
+{% endif %}
 {% endif %}
 {% if sprd_profile.uses_sc27xx_haptics %}
 The vendor ramdisk exposes an SC27XX vibrator, so the input haptics overlay is included.
