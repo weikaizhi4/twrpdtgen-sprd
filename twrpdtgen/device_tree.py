@@ -194,9 +194,6 @@ class DeviceTree:
 			self._copy_sprd_vendor_ramdisk(recovery_root_path, self.image_info.ramdisk)
 			if self.is_sprd_legacy_recovery:
 				self._write_sprd_legacy_recovery_fstab(recovery_root_path)
-			else:
-				self._write_sprd_recovery_init(recovery_root_path)
-				self._write_sprd_sepolicy_helper(device_tree_folder, prebuilt_path)
 			self._copy_sprd_source_patches(prebuilt_path / "sourcecode")
 
 		if git:
