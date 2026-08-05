@@ -287,7 +287,7 @@ TW_SUPPORT_SC27XX_INPUT_HAPTICS := true
 {% if sprd_profile.needs_legacy_drm %}
 TW_DRM_LEGACY_MODESET := true
 {% endif %}
-{% if sprd_profile.copy_stock_selinux and not is_sprd_legacy_recovery %}
+{% if sprd_profile.copy_stock_selinux and vendor_boot %}
 # Run tools/patch_stock_sepolicy.sh with a libsepol-backed SEPOLICY_PATCHER before building.
 {% endif %}
 {% endif %}
